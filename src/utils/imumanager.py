@@ -17,8 +17,6 @@ class IMUManager:
         self.mag_data = np.empty([numOfDevices, 3])
         self.quat_data = np.empty([numOfDevices, 4])
         
-
-    
     def conenct_IMU_sensors(self):
         xdpcHandler = XdpcHandler()
 
@@ -62,21 +60,6 @@ class IMUManager:
         xdpcHandler = self.devices
         self.reset_heading_default()
         self.stop_measuring_mode()
-        # for device in xdpcHandler.connectedDots():
-        #     print(f"\nResetting heading to default for device {device.portInfo().bluetoothAddress()}: ", end="", flush=True)
-        #     if device.resetOrientation(movelladot_pc_sdk.XRM_DefaultAlignment):
-        #          print("OK", end="", flush=True)
-        #     else:
-        #         print(f"NOK: {device.lastResultText()}", end="", flush=True)
-        # print("\n", end="", flush=True)
-
-        # print("\nStopping measurement...")
-        # for device in xdpcHandler.connectedDots():
-        #     if not device.stopMeasurement():
-        #      print("Failed to stop measurement.")
-        #     if not device.disableLogging():
-        #         print("Failed to disable logging.")
-
         xdpcHandler.cleanup()
         del xdpcHandler
 
@@ -101,7 +84,6 @@ class IMUManager:
                 print(f"Could not start sync. Reason: {manager.lastResultText()}. Aborting.")
                 xdpcHandler.cleanup()
                 exit(-1)  
-
 
     def start_measuring_mode(self):
         xdpcHandler = self.devices
@@ -161,11 +143,13 @@ class IMUManager:
                             
                             
                 if packet.containsOrientation():
-                    self.quat_data = packet.orientationQuaternion()
+                    self.quat_data[dev, :] = packet.orientationQuaternion()
                 else:
                     q = np.empty(4)
                     q[:]=np.nan
                     self.quat_data[dev, :] = q
+
+                dev = dev + 1
 
             if len(self.devices.connectedDots())== 1:
                     self.reshape_measurments()
