@@ -13,7 +13,7 @@ class IMURecordingStudio(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        #Global variables
+        # Global variables
         self.imu_status_lamps = [] # List of IMU lamps
         self.imu_status_labels = [] # List of IMU labels
         self.imu_battery_status_labels = [] # List of labels with status labels
@@ -27,12 +27,23 @@ class IMURecordingStudio(tk.Tk):
         self.imu_comboboxes = [] # List that stores the comboboxes for imus, one for each leg component.
         self.camera_list_1_previous_Value = None # List of previous values of Combobox 1
         self.camera_list_2_previous_Value = None # List of previous values of Combobox 2
-        self.thread = [None, None] # Stores threads
-        self.thread_flag = [False, False] # Flag for stopping threads
         
+        self.imu_lock_status = False #Flag for storing if IMU configuration is locked (checked)
+        self.imu_streaming = False # Flag for storing if IMUs are streaming in the IMU vector view
+        self.imu_configuration_list = [] # List for storing the configuration list with IMUs
+        self.imu_ordered_configuration = [] # List that stores the correct order of the IMUs based on the configuration in the settings
 
+        # Thread explanation: #Thread[0] and Thread[1] are used by webcams to stream upon pressing the Start/Stop button
+        # Thread[2] will be used when Run/Stop Streaming button is pressed to stream IMU data in the IMU vector view.
+        # When Start Recording Button is pressed -> Thread[0] will be used to Collect data from all sensors, Thread[1] will be used to stream webcam 1, 
+        # Thread[2] will be used to stream webcam 2, Thread[3] will be used to plot IMU data
+        self.thread = [None, None, None, None] # Stores threads
+        self.thread_flag = [False, False, False, False] # Flag for stopping threads
+
+       
+       
         self.title("IMU Recording Studio")
-        self.geometry("850x750")
+        self.geometry("850x800")
         
         # Create Tab control
         self.tabControl = ttk.Notebook(self)
@@ -61,18 +72,22 @@ class IMURecordingStudio(tk.Tk):
         # Camera Control Frame
         camera_control_frame = ttk.LabelFrame(self.main_tab, text="")
         camera_control_frame.grid(row=1, column=0, padx=10, pady=10)
-        camera_control_frame.place(x=10, y= 340, width=800, height=50) 
+        camera_control_frame.place(x=10, y=340, width=420, height=50) 
 
         # IMU Vector View Frame
         imu_frame = ttk.LabelFrame(self.main_tab, width=250, height=250, text="IMU Vector View")
         imu_frame.grid(row=4, column=0, padx=10, pady=10)
         imu_frame.place(x=10, y=400)
 
+        # IMU Vector Control Frame
+        IMU_control_frame = ttk.LabelFrame(self.main_tab, text="")
+        IMU_control_frame.grid(row=1, column=0, padx=10, pady=10)
+        IMU_control_frame.place(x=10, y= 720, width=420, height=50) 
+
         # Functionality Buttons Frame
         functionality_frame = ttk.LabelFrame(self.main_tab, text="Functionality Buttons")
         functionality_frame.grid(row=4, column=1, padx=10, pady=10)
         functionality_frame.place(x=420, y=400, width=390, height=320)  
-
 
         # Create matplotlib figures for the camera views
         self.create_camera_views(camera_frame)
@@ -83,6 +98,8 @@ class IMURecordingStudio(tk.Tk):
         # Create camera views control buttons
         self.create_camera_control_buttons(camera_control_frame)
         
+        self.create_imu_control_button(IMU_control_frame)
+
         # Create buttons in functionality_frame
         ttk.Button(functionality_frame, text="Start Recording").pack(pady=5, side=tk.LEFT, anchor='nw')
         ttk.Button(functionality_frame, text="Stop Recording").pack(padx=20, pady=5, side=tk.LEFT, anchor='nw')
@@ -123,13 +140,21 @@ class IMURecordingStudio(tk.Tk):
     
     def create_imu_vector_view(self, frame):
         # IMU Vector View (using Matplotlib as placeholder)
-        fig, ax = plt.subplots(figsize=(4, 3))
-        ax.set_title("IMU Vector View")
-        ax.axis('off')
-        canvas = FigureCanvasTkAgg(fig, master=frame)
-        canvas.draw()
-        canvas.get_tk_widget().pack()
-        
+        # 
+        # self.fig, self.ax = plt.subplots(figsize=(4, 3))
+        self.fig = plt.figure(figsize=(4, 3))
+        self.ax = self.fig.add_subplot(111, projection='3d')   
+        self.ax.set_title("IMU Vector View")
+        self.ax.axis('off')
+        self.canvas = FigureCanvasTkAgg(self.fig, master=frame)
+        self.canvas.draw()
+        self.canvas.get_tk_widget().pack()
+
+    def create_imu_control_button(self, frame):
+        start_stop_imu_button = ttk.Button(frame, text="Start/Stop streaming", command=self.start_stop_button_streaming_imu)
+        start_stop_imu_button.grid(row=0, column=1, columnspan=1)
+        start_stop_imu_button.place(x=150)
+
     def create_settings_tab(self):
         # IMU Sensor Status Frame
         self.imu_control_frame = ttk.LabelFrame(self.settings_tab, text="IMU Sensor Control")
@@ -304,11 +329,11 @@ class IMURecordingStudio(tk.Tk):
                 cameraview_axis.imshow(camera_frame)
                 cameraview_axis.axis('off')
                 cameraview_canvas.draw()                
-            time.sleep(0.001)
-            print("Running")
+            # time.sleep(0.001)
+            # print("Running")
             if not self.thread_flag[threadNum]:
                 self.InitiatedCameras[int(cameranumber)].streaming = False
-        print('Run')
+        # print('Run')
         print(f"Stoped reading from camera {cameranumber}")
         
     def stop_thread_streaming(self):
@@ -318,7 +343,7 @@ class IMURecordingStudio(tk.Tk):
         self.InitiatedCameras[int(self.camera_list_2.get())].streaming = False
         print(f"Camera {int(self.camera_list_2.get())} set to NO streaming ")
 
-        for i in self.thread_flag:
+        for i in range(2):
             self.thread_flag[i] = False
             print(f"Flag for thread {i} set to False")
             print(f"Thread is alive: {self.thread[i].is_alive()}")
@@ -389,17 +414,133 @@ class IMURecordingStudio(tk.Tk):
         print(1)
 
     def lock_imu_configuration(self):
+        # TODO: Should add a check if IMU is used somewhere else.
         for combo in self.imu_comboboxes:
             combo['state'] = 'disable'
+            self.imu_lock_status = True
 
     
     def unlock_imu_configuration(self):
         for combo in self.imu_comboboxes:
             combo['state'] = 'readonly'
+            self.imu_lock_status = False
 
     def sync_sensors(self):
       self.imu.sync_IMU_sensors()
         
+    def start_stop_button_streaming_imu(self):
+        if self.imu_streaming:
+            self.stop_imu_streaming()
+            self.imu_streaming = False
+            
+        else:
+            self.start_imu_streaming()
+            self.imu_streaming = True
+    
+    def stop_imu_streaming(self):
+        if self.imu_streaming:
+            self.thread_flag[2] = False
+            self.imu.stop_measuring_mode()
+            self.thread[2].join(0)
+
+            print("IMU THREAD JOINED")
+            self.imu_configuration_list.clear()
+            self.imu_configuration_list = []
+            self.imu_streaming = False
+        else:
+            print("No IMUs are streaming at the moment")
+
+    def start_imu_streaming(self):
+        if self.imu_lock_status:
+            self.imu_ordered_configuration = []
+            flag = False # Dummy for checking if at least one movella has been selected 
+            for combobox in self.imu_comboboxes:
+                # We must loop over the combo, read the value of each dropdown menu, 
+                # loop over imu.devices and see what idx this device has, and then store this idx in a new list
+                value = combobox.get()
+
+                if value == "None":
+                    self.imu_ordered_configuration.append(-1) # -1 Means that combobox is set to "None" i.e. no Sensor was set to that part
+                else:
+                    for idx in range(len(self.imu.devices.connectedDots())):
+                        if self.imu.devices.connectedDots()[idx].deviceTagName() == value:
+                            self.imu_ordered_configuration.append(idx)
+                            flag = True
+                            break                    
+            
+            # If everthing is ok distribute the work to another Thread
+            if flag:
+                self.imu_streaming = True
+                self.initiate_plot()
+                self.imu.start_measuring_mode()
+                self.thread_flag[2] = True
+                self.thread[2] = Thread(target=self.update_imu_plot)
+                self.thread[2].start()
+              
+
+        else: 
+            print("IMU configuration is not locked. Please proceed checking the configuration and lock it brefore start streaming")
+    
+    def initiate_plot(self):
+        self.ax.clear()
+        self.ax.set_xlabel("X")
+        self.ax.set_ylabel("Y")
+        self.ax.set_zlabel("Z")
+        self.ax.set_xlim3d([-2, 2])
+        self.ax.set_ylim3d([-2, 2])
+        self.ax.set_zlim3d([-2, 2])
+        self.ax.set_autoscale_on(False)
+
+        #change accordingy the drawing of a human pose
+        self.unit_vector = np.array([1, 0, 0])
+        self.quiver1 = self.ax.quiver(0, 0, 0, self.unit_vector[0], self.unit_vector[1], self.unit_vector[2], color='blue', label='Vector direction')
+        self.quiver2 = self.ax.quiver(self.unit_vector[0], self.unit_vector[1], self.unit_vector[2], self.unit_vector[0], self.unit_vector[1], self.unit_vector[2], color='red', label='Vector direction')
+        self.canvas.draw() 
+
+    # TODO: More work is needed here
+    def update_imu_plot(self):
+        while self.thread_flag[2]:
+            self.imu.get_measurments()
+            quaternions = self.imu.quat_data
+
+            #expand
+            q1 = quaternions[0,:]
+            rotmatrix = self.get_rotation_matrix_quaternions(q1)
+            rotatedVector = np.dot(rotmatrix, self.unit_vector)
+
+            self.quiver1.remove()
+            self.quiver1 = self.ax.quiver(0, 0, 0, rotatedVector[0], rotatedVector[1], rotatedVector[2], color='blue', label='Vector direction')
+            self.canvas.draw() 
+
+    #Rotation matrix from quaternions as input
+    def get_rotation_matrix_quaternions(self, qVector): # returns the rotation matrix from qunernions as input
+        q0 = qVector[0]
+        q1 = qVector[1]
+        q2 = qVector[2]
+        q3 = qVector[3]
+        
+        # First row of the rotation matrix
+        r00 = 2 * (q0 * q0 + q1 * q1) - 1
+        r01 = 2 * (q1 * q2 - q0 * q3)
+        r02 = 2 * (q1 * q3 + q0 * q2)
+        
+        # Second row of the rotation matrix
+        r10 = 2 * (q1 * q2 + q0 * q3)
+        r11 = 2 * (q0 * q0 + q2 * q2) - 1
+        r12 = 2 * (q2 * q3 - q0 * q1)
+        
+        # Third row of the rotation matrix
+        r20 = 2 * (q1 * q3 - q0 * q2)
+        r21 = 2 * (q2 * q3 + q0 * q1)
+        r22 = 2 * (q0 * q0 + q3 * q3) - 1
+        
+        # 3x3 rotation matrix
+        return np.array([[r00, r01, r02],
+                        [r10, r11, r12],
+                        [r20, r21, r22]])
+    
+
+
 
 
 # Run the application

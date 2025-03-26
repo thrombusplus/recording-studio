@@ -10,6 +10,14 @@ class IMUManager:
     def __init__(self, parms): # connect sensors
         self.frame_rate = parms    
         self.devices = self.conenct_IMU_sensors()
+        
+        numOfDevices = len(self.devices.connectedDots())
+        self.acc_data = np.empty([numOfDevices, 3]) #No sure if should be filled with Nan instead
+        self.gyr_data = np.empty([numOfDevices, 3])
+        self.mag_data = np.empty([numOfDevices, 3])
+        self.quat_data = np.empty([numOfDevices, 4])
+        
+
     
     def conenct_IMU_sensors(self):
         xdpcHandler = XdpcHandler()
@@ -52,20 +60,22 @@ class IMUManager:
     
     def disconnect_IMU_sensors(self):
         xdpcHandler = self.devices
-        for device in xdpcHandler.connectedDots():
-            print(f"\nResetting heading to default for device {device.portInfo().bluetoothAddress()}: ", end="", flush=True)
-            if device.resetOrientation(movelladot_pc_sdk.XRM_DefaultAlignment):
-                 print("OK", end="", flush=True)
-            else:
-                print(f"NOK: {device.lastResultText()}", end="", flush=True)
-        print("\n", end="", flush=True)
+        self.reset_heading_default()
+        self.stop_measuring_mode()
+        # for device in xdpcHandler.connectedDots():
+        #     print(f"\nResetting heading to default for device {device.portInfo().bluetoothAddress()}: ", end="", flush=True)
+        #     if device.resetOrientation(movelladot_pc_sdk.XRM_DefaultAlignment):
+        #          print("OK", end="", flush=True)
+        #     else:
+        #         print(f"NOK: {device.lastResultText()}", end="", flush=True)
+        # print("\n", end="", flush=True)
 
-        print("\nStopping measurement...")
-        for device in xdpcHandler.connectedDots():
-            if not device.stopMeasurement():
-             print("Failed to stop measurement.")
-            if not device.disableLogging():
-                print("Failed to disable logging.")
+        # print("\nStopping measurement...")
+        # for device in xdpcHandler.connectedDots():
+        #     if not device.stopMeasurement():
+        #      print("Failed to stop measurement.")
+        #     if not device.disableLogging():
+        #         print("Failed to disable logging.")
 
         xdpcHandler.cleanup()
         del xdpcHandler
@@ -91,3 +101,79 @@ class IMUManager:
                 print(f"Could not start sync. Reason: {manager.lastResultText()}. Aborting.")
                 xdpcHandler.cleanup()
                 exit(-1)  
+
+
+    def start_measuring_mode(self):
+        xdpcHandler = self.devices
+        for device in xdpcHandler.connectedDots():
+            if not device.startMeasurement(movelladot_pc_sdk.XsPayloadMode_CustomMode4):
+                print(f"Could not put device into measurement mode. Reason: {device.lastResultText()}")
+                continue       
+
+    def stop_measuring_mode(self):
+        xdpcHandler = self.devices
+        print("\nStopping measurement...")
+        for device in xdpcHandler.connectedDots():
+            if not device.stopMeasurement():
+                print("Failed to stop measurement.")
+            if not device.disableLogging():
+                print("Failed to disable logging.")
+
+    def reset_heading_default(self):
+        xdpcHandler = self.devices
+        for device in xdpcHandler.connectedDots():
+            print(f"\nResetting heading to default for device {device.portInfo().bluetoothAddress()}: ", end="", flush=True)
+            if device.resetOrientation(movelladot_pc_sdk.XRM_DefaultAlignment):
+                print("OK", end="", flush=True)
+            else:
+                print(f"NOK: {device.lastResultText()}", end="", flush=True)
+        print("\n", end="", flush=True)
+
+    def reset_heading(self):   
+        xdpcHandler = self.devices
+        for device in xdpcHandler.connectedDots():
+            print(f"\nResetting heading to default for device {device.portInfo().bluetoothAddress()}: ", end="", flush=True)
+            if device.resetOrientation(movelladot_pc_sdk.XRM_DefaultAlignment):
+                print("OK", end="", flush=True)
+            else:
+                print(f"NOK: {device.lastResultText()}", end="", flush=True)
+        print("\n", end="", flush=True) 
+
+    def get_measurments(self):
+        dev = 0 #counter for the number of device    
+        if self.devices.packetsAvailable():
+            for device in self.devices.connectedDots(): #depending on the speed of the for loop, maybe this can take place in parallel 
+                # Retrieve a packet
+                packet = self.devices.getNextPacket(device.portInfo().bluetoothAddress())
+                        
+                if packet.containsCalibratedData():
+                    data = packet.calibratedData()
+                    self.acc_data[dev, :] = data.m_acc
+                    self.gyr_data[dev, :] = data.m_gyr
+                    self.mag_data[dev, :] = data.m_mag
+
+                else:
+                    acc = np.empty(3) 
+                    acc[:] = np.nan
+                    self.acc_data[dev, :] = acc
+                    self.gyr_data[dev, :] = acc
+                    self.mag_data[dev, :] = acc
+                            
+                            
+                if packet.containsOrientation():
+                    self.quat_data = packet.orientationQuaternion()
+                else:
+                    q = np.empty(4)
+                    q[:]=np.nan
+                    self.quat_data[dev, :] = q
+
+            if len(self.devices.connectedDots())== 1:
+                    self.reshape_measurments()
+
+
+    def reshape_measurments(self):
+            self.acc_data = self.acc_data.reshape(-1, 3)
+            self.gyr_data = self.gyr_data.reshape(-1, 3)
+            self.mag_data = self.mag_data.reshape(-1, 3)
+            self.quat_data =  self.quat_data.reshape(-1, 4)                
+
