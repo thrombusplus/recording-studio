@@ -431,11 +431,11 @@ class IMURecordingStudio(tk.Tk):
     def start_stop_button_streaming_imu(self):
         if self.imu_streaming:
             self.stop_imu_streaming()
-            self.imu_streaming = False
+            # self.imu_streaming = False
             
         else:
             self.start_imu_streaming()
-            self.imu_streaming = True
+            # self.imu_streaming = True
     
     def stop_imu_streaming(self):
         if self.imu_streaming:
@@ -487,14 +487,11 @@ class IMURecordingStudio(tk.Tk):
         self.ax.set_ylabel("Y")
         self.ax.set_zlabel("Z")
         self.ax.set_xlim3d([-2, 2])
-        self.ax.set_ylim3d([-2, 2])
+        self.ax.set_ylim3d([-1, 6])
         self.ax.set_zlim3d([-2, 2])
         self.ax.set_autoscale_on(False)
-
-        #change accordingy the drawing of a human pose
-        self.unit_vector = np.array([1, 0, 0])
-        self.quiver1 = self.ax.quiver(0, 0, 0, self.unit_vector[0], self.unit_vector[1], self.unit_vector[2], color='blue', label='Vector direction')
-        self.quiver2 = self.ax.quiver(self.unit_vector[0], self.unit_vector[1], self.unit_vector[2], self.unit_vector[0], self.unit_vector[1], self.unit_vector[2], color='red', label='Vector direction')
+        
+        self.get_pose()
         self.canvas.draw() 
 
     # TODO: More work is needed here
@@ -502,15 +499,8 @@ class IMURecordingStudio(tk.Tk):
         while self.thread_flag[2]:
             self.imu.get_measurments()
             quaternions = self.imu.quat_data
-
-            #expand
-            q1 = quaternions[0,:]
-            rotmatrix = self.get_rotation_matrix_quaternions(q1)
-            rotatedVector = np.dot(rotmatrix, self.unit_vector)
-
-            self.quiver1.remove()
-            self.quiver1 = self.ax.quiver(0, 0, 0, rotatedVector[0], rotatedVector[1], rotatedVector[2], color='blue', label='Vector direction')
-            self.canvas.draw() 
+            print(quaternions)
+           
 
     #Rotation matrix from quaternions as input
     def get_rotation_matrix_quaternions(self, qVector): # returns the rotation matrix from qunernions as input
@@ -539,6 +529,17 @@ class IMURecordingStudio(tk.Tk):
                         [r10, r11, r12],
                         [r20, r21, r22]])
     
+
+    def get_pose(self):
+        self.pose = 'laying' # TODO: change to read from a dropdown menu
+        if self.pose == 'sitting':
+            print("TODO")
+        else:
+            self.joints = DEFAULT_SETTINGS.skeleton_pose_laying_joints()
+            
+        DEFAULT_SETTINGS.plot_body_parts(self.ax, self.joints)
+        
+        
 
 
 
