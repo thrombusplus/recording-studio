@@ -12,61 +12,62 @@ class DEFAULT_SETTINGS:
         
     def skeleton_pose_laying_joints():
         joints = {
-            'head': np.array([0, 6, 0]),
-            'neck': np.array([0, 5, 0]),
-            'left_shoulder': np.array([-0.5, 5, 0]),
-            'right_shoulder': np.array([0.5, 5, 0]),
-            'left_elbow' : np.array([-0.8, 4, 0]),
-            'right_elbow' : np.array([0.8, 4, 0]),
-            'left_wrist' : np.array([-1, 3, 0]),
-            'right_wrist' : np.array([1, 3, 0]),
-            'hip': np.array([0, 3, 0]),
-            'left_hip': np.array([-0.5, 3, 0]),
-            'right_hip': np.array([0.5, 3, 0]),
-            'left_knee': np.array([-0.5, 1.5, 0]),
-            'right_knee': np.array([0.5, 1.5, 0]),
-            'left_ankle': np.array([-0.5, 0, 0]),
-            'right_ankle': np.array([0.5, 0, 0]),
-            'left_toes': np.array([-0.5, 0, 0.3]),
-            'right_toes': np.array([0.5, 0, 0.3])
+            'Head': np.array([0, 0, 0]),
+            'Neck': np.array([1, 0, 0]),
+            'Left Shoulder': np.array([1, -0.5, 0]),
+            'Right Shoulder': np.array([1, 0.5, 0]),
+            'Left Elbow' : np.array([2, -0.8, 0]),
+            'Right Elbow' : np.array([2, 0.8, 0]),
+            'Left Wrist' : np.array([3, -1, 0]),
+            'Right Wrist' : np.array([3, 1, 0]),
+            'Hip': np.array([3, 0, 0]),
+            'Left Hip': np.array([3, -0.5, 0]),
+            'Right Hip': np.array([3, 0.5, 0]),
+            'Left Knee': np.array([4.5, -0.5, 0]),
+            'Right Knee': np.array([4.5, 0.5, 0]),
+            'Left Ankle': np.array([6, -0.5, 0]),
+            'Right Ankle': np.array([6, 0.5, 0]),
+            'Left Toes': np.array([6, -0.5, 0.2]),
+            'Right Toes': np.array([6, 0.5, 0.2])
             } 
         return joints
     
-    def skeleton_pose_sitting_joints(): #TODO: change the coordinates
-        joints = {
-            'head': np.array([0, 6, 0]),
-            'neck': np.array([0, 5, 0]),
-            'left_shoulder': np.array([-0.5, 5, 0]),
-            'right_shoulder': np.array([0.5, 5, 0]),
-            'left_elbow' : np.array([-0.8, 4, 0]),
-            'right_elbow' : np.array([0.8, 4, 0]),
-            'left_wrist' : np.array([-1, 3, 0]),
-            'right_wrist' : np.array([1, 3, 0]),
-            'hip': np.array([0, 3, 0]),
-            'left_hip': np.array([-0.5, 3, 0]),
-            'right_hip': np.array([0.5, 3, 0]),
-            'left_knee': np.array([-0.5, 1.5, 0]),
-            'right_knee': np.array([0.5, 1.5, 0]),
-            'left_ankle': np.array([-0.5, 0, 0]),
-            'right_ankle': np.array([0.5, 0, 0]),
-            'left_toes': np.array([-0.5, 0, 0.3]),
-            'right_toes': np.array([0.5, 0, 0.3])
-            } 
-        return joints
+    # def skeleton_pose_sitting_joints(): #TODO: change the coordinates
+    #     joints = {
+    #         'Head': np.array([0, 6, 0]),
+    #         'Neck': np.array([0, 5, 0]),
+    #         'Left Shoulder': np.array([-0.5, 5, 0]),
+    #         'RightShoulder': np.array([0.5, 5, 0]),
+    #         'Left Elbow' : np.array([-0.8, 4, 0]),
+    #         'Right Elbow' : np.array([0.8, 4, 0]),
+    #         'Left Wrist' : np.array([-1, 3, 0]),
+    #         'Right Wrist' : np.array([1, 3, 0]),
+    #         'Hip': np.array([0, 3, 0]),
+    #         'Left Hip': np.array([-0.5, 3, 0]),
+    #         'Right Hip': np.array([0.5, 3, 0]),
+    #         'Left Knee': np.array([-0.5, 1.5, 0]),
+    #         'Right Knee': np.array([0.5, 1.5, 0]),
+    #         'Left Ankle': np.array([-0.5, 0, 0]),
+    #         'Right Ankle': np.array([0.5, 0, 0]),
+    #         'Left Toes': np.array([-0.5, 0, 0.2]),
+    #         'Right Toes': np.array([0.5, 0, 0.2])
+    #         } 
+    #     return joints
 
     def plot_body_parts(axes, joints):
         
         body_parts = [
-            ('head', 'neck'),
-            ('neck', 'left_shoulder'), ('neck', 'right_shoulder'),
-            ('left_shoulder', 'left_elbow'), ('right_shoulder', 'right_elbow'),
-            ('left_elbow', 'left_wrist'), ('right_elbow', 'right_wrist'),
-            ('neck', 'hip'),
-            ('hip', 'left_hip'), ('hip', 'right_hip'),
-            ('left_hip', 'left_knee'), ('right_hip', 'right_knee'),
-            ('left_knee', 'left_ankle'), ('right_knee', 'right_ankle'),
-            ('left_ankle', 'left_toes'), ('right_ankle', 'right_toes')
+            ('Head', 'Neck'),
+            ('Neck', 'Left Shoulder'), ('Neck', 'Right Shoulder'),
+            ('Left Shoulder', 'Left Elbow'), ('Right Shoulder', 'Right Elbow'),
+            ('Left Elbow', 'Left Wrist'), ('Right Elbow', 'Right Wrist'),
+            ('Neck', 'Hip'),
+            ('Hip', 'Left Hip'), ('Hip', 'Right Hip'),
+            ('Left Hip', 'Left Knee'), ('Right Hip', 'Right Knee'),
+            ('Left Knee', 'Left Ankle'), ('Right Knee', 'Right Ankle'),
+            ('Left Ankle', 'Left Toes'), ('Right Ankle', 'Right Toes')
             ]
+            
         
     # Plot body parts
         for part in body_parts:

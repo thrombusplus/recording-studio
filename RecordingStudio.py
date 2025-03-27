@@ -6,6 +6,7 @@ import time
 from threading import Thread
 from IPython import get_ipython
 import numpy as np
+import copy
 from src.utils import *
 
 # Main application class for IMU Recording Studio
@@ -25,6 +26,7 @@ class IMURecordingStudio(tk.Tk):
         self.idxInitiatedCameras = [] # List of indexes of initiated cameras
         self.imu = None # Stores the class for IMU sensors
         self.imu_comboboxes = [] # List that stores the comboboxes for imus, one for each leg component.
+        self.imu_combobox_labels = [] # List that stores the labels of the imu_comboboxes
         self.camera_list_1_previous_Value = None # List of previous values of Combobox 1
         self.camera_list_2_previous_Value = None # List of previous values of Combobox 2
         
@@ -32,6 +34,7 @@ class IMURecordingStudio(tk.Tk):
         self.imu_streaming = False # Flag for storing if IMUs are streaming in the IMU vector view
         self.imu_configuration_list = [] # List for storing the configuration list with IMUs
         self.imu_ordered_configuration = [] # List that stores the correct order of the IMUs based on the configuration in the settings
+        self.reset_heading_flag = False # Flag to perform reset heading
 
         # Thread explanation: #Thread[0] and Thread[1] are used by webcams to stream upon pressing the Start/Stop button
         # Thread[2] will be used when Run/Stop Streaming button is pressed to stream IMU data in the IMU vector view.
@@ -40,7 +43,6 @@ class IMURecordingStudio(tk.Tk):
         self.thread = [None, None, None, None] # Stores threads
         self.thread_flag = [False, False, False, False] # Flag for stopping threads
 
-       
        
         self.title("IMU Recording Studio")
         self.geometry("850x800")
@@ -155,6 +157,9 @@ class IMURecordingStudio(tk.Tk):
         start_stop_imu_button.grid(row=0, column=1, columnspan=1)
         start_stop_imu_button.place(x=150)
 
+        imu_reset_heading_button =ttk.Button(frame, text="Reset Heading", command=self.reset_heading)
+        imu_reset_heading_button.grid(row=0,column=0, columnspan=1 )
+
     def create_settings_tab(self):
         # IMU Sensor Status Frame
         self.imu_control_frame = ttk.LabelFrame(self.settings_tab, text="IMU Sensor Control")
@@ -182,11 +187,15 @@ class IMURecordingStudio(tk.Tk):
         for imu in range(6):
             imu_label = ttk.Label(self.imu_configuration_frame, text=temp_list[imu], justify='left')
             imu_label.grid(row=imu+3, column=0, padx=10, pady=10)
+            self.imu_combobox_labels.append(imu_label)
 
             imu_combo= ttk.Combobox(self.imu_configuration_frame, state="disabled", values=["None"])
             imu_combo.grid(row=imu+3, column=1, columnspan=1)
             imu_combo.current(0)
             self.imu_comboboxes.append(imu_combo)
+        
+        # imu_reset_heading_button =ttk.Button(self.imu_configuration_frame, text="Reset Heading", command=self.reset_heading)
+        # imu_reset_heading_button.grid(row=imu+4,column=0, columnspan=1 )
 
         imu_lock_button = ttk.Button(self.imu_configuration_frame, text="Lock configuration", state="enabled", command=self.lock_imu_configuration)    
         imu_lock_button.grid(row=imu+4, column=1, columnspan=1)
@@ -486,9 +495,9 @@ class IMURecordingStudio(tk.Tk):
         self.ax.set_xlabel("X")
         self.ax.set_ylabel("Y")
         self.ax.set_zlabel("Z")
-        self.ax.set_xlim3d([-2, 2])
-        self.ax.set_ylim3d([-1, 6])
-        self.ax.set_zlim3d([-2, 2])
+        self.ax.set_xlim3d([-1, 6])
+        self.ax.set_ylim3d([-3.5, 3.5])
+        self.ax.set_zlim3d([-3.5, 3.5])
         self.ax.set_autoscale_on(False)
         
         self.get_pose()
@@ -496,14 +505,39 @@ class IMURecordingStudio(tk.Tk):
 
     # TODO: More work is needed here
     def update_imu_plot(self):
+        self.new_joints = DEFAULT_SETTINGS.skeleton_pose_laying_joints()
+        self.unitVector = np.array([0, 1, 0])
+
         while self.thread_flag[2]:
             self.imu.get_measurments()
             quaternions = self.imu.quat_data
-            print(quaternions)
-           
+                
+            for legSegment in range(len(self.imu_comboboxes)):
+                deviceIdx = self.imu_ordered_configuration[legSegment]
+                if deviceIdx!=-1: 
+                    q = quaternions[deviceIdx, :]
+                    rotationMatrix = self.get_rotation_matrix_quaternions(q)
+                    self.rotate_leg_segment(self.imu_combobox_labels[legSegment]['text'][:-1], rotationMatrix)
+            
+            self.ax.clear()
+            self.ax.set_xlabel("X")
+            self.ax.set_ylabel("Y")
+            self.ax.set_zlabel("Z")
+            self.ax.set_xlim3d([-1, 6])
+            self.ax.set_ylim3d([-3.5, 3.5])
+            self.ax.set_zlim3d([-3.5, 3.5])
+            self.ax.set_autoscale_on(False)
+            DEFAULT_SETTINGS.plot_body_parts(self.ax, self.new_joints)
+            # self.quiver = self.ax.quiver(self.joints['Left Hip'][0], self.joints['Left Hip'][1], self.joints['Left Hip'][2], self.new_joints['Left Knee'][0], self.new_joints['Left Knee'][1], self.new_joints['Left Knee'][2], color='red', label='Vector direction')
+            self.canvas.draw()     
+
+            if self.reset_heading_flag:
+                self.imu.reset_heading()
+                self.reset_heading_flag = False
+
 
     #Rotation matrix from quaternions as input
-    def get_rotation_matrix_quaternions(self, qVector): # returns the rotation matrix from qunernions as input
+    def get_rotation_matrix_quaternions(self, qVector): # returns the rotation matrix from qunternions as input
         q0 = qVector[0]
         q1 = qVector[1]
         q2 = qVector[2]
@@ -539,9 +573,71 @@ class IMURecordingStudio(tk.Tk):
             
         DEFAULT_SETTINGS.plot_body_parts(self.ax, self.joints)
         
-        
+    def rotate_leg_segment(self, legSegment, rotationMatrix):
+        #Todo: simplify
+        if legSegment == 'Left Thigh':
+            temp = copy.deepcopy(self.new_joints['Left Knee'])
+            start = self.joints['Left Hip']
+            stop = self.joints['Left Knee'] - start 
+            norm = stop/np.linalg.norm(stop)
+            rotated = np.dot(rotationMatrix, norm)
+            if not np.isnan(norm).any():
+                self.new_joints['Left Knee'] = rotated *np.linalg.norm(stop) + start
+                self.new_joints['Left Ankle'] = self.new_joints['Left Ankle'] + (self.new_joints['Left Knee'] - temp)
+                self.new_joints['Left Toes'] = self.new_joints['Left Toes'] + (self.new_joints['Left Knee'] - temp)
+                print(f"Length of Calf = {np.linalg.norm(self.new_joints['Left Knee'] - self.new_joints['Left Ankle'])}")
+                print(f"Length of Foot = {np.linalg.norm(self.new_joints['Left Ankle'] - self.new_joints['Left Toes'])}")
 
+        elif legSegment == 'Left Calf':
+            temp = copy.deepcopy(self.new_joints['Left Ankle'])
+            start = self.joints['Left Knee']
+            stop = self.joints['Left Ankle'] - start 
+            norm = stop/np.linalg.norm(stop)
+            rotated = np.dot(rotationMatrix, norm)
+            if not np.isnan(norm).any():
+                self.new_joints['Left Ankle'] = rotated *np.linalg.norm(stop) + start
+                self.new_joints['Left Toes'] = self.new_joints['Left Toes'] + (self.new_joints['Left Ankle'] - temp)
+   
+        elif legSegment == 'Left Foot':
+            start = self.joints['Left Ankle']
+            stop = self.joints['Left Toes'] - start 
+            norm = stop/np.linalg.norm(stop)
+            rotated = np.dot(rotationMatrix, norm)
+            if not np.isnan(norm).any():
+                self.new_joints['Left Toes'] = rotated *np.linalg.norm(stop) + start
+   
+        elif legSegment == 'Right Thigh':
+            temp = copy.deepcopy(self.new_joints['Right Knee'])
+            start = self.joints['Right Hip']
+            stop = self.joints['Right Knee'] - start 
+            norm = stop/np.linalg.norm(stop)
+            rotated = np.dot(rotationMatrix, norm)
+            if not np.isnan(norm).any():
+                self.new_joints['Right Knee'] = rotated *np.linalg.norm(stop) + start
+                self.new_joints['Right Ankle'] = self.new_joints['Right Ankle'] + (self.new_joints['Right Knee'] - temp)
+                self.new_joints['Right Toes'] = self.new_joints['Right Toes'] + (self.new_joints['Right Knee'] - temp)
+                
+        elif legSegment == 'Right Calf':
+            temp = copy.deepcopy(self.new_joints['Right Ankle'])
+            start = self.joints['Right Knee']
+            stop = self.joints['Right Ankle'] - start 
+            norm = stop/np.linalg.norm(stop)
+            rotated = np.dot(rotationMatrix, norm)
+            if not np.isnan(norm).any():
+                self.new_joints['Right Ankle'] = rotated *np.linalg.norm(stop) + start
+                self.new_joints['Right Toes'] = self.new_joints['Right Toes'] + (self.new_joints['Right Ankle'] - temp)
 
+        elif legSegment == 'Right Foot':
+            start = self.joints['Right Ankle']
+            stop = self.joints['Right Toes'] - start 
+            norm = stop/np.linalg.norm(stop)
+            rotated = np.dot(rotationMatrix, norm)
+            if not np.isnan(norm).any():
+                self.new_joints['Right Toes'] = rotated *np.linalg.norm(stop) + start
+
+    def reset_heading(self):
+        # self.imu.reset_heading()  
+        self.reset_heading_flag = True
 
 
 # Run the application

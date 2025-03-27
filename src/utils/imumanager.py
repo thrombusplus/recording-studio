@@ -58,6 +58,7 @@ class IMUManager:
     
     def disconnect_IMU_sensors(self):
         xdpcHandler = self.devices
+        self.start_measuring_mode()
         self.reset_heading_default()
         self.stop_measuring_mode()
         xdpcHandler.cleanup()
@@ -113,14 +114,20 @@ class IMUManager:
 
     def reset_heading(self):   
         xdpcHandler = self.devices
+        # startTime = movelladot_pc_sdk.XsTimeStamp_nowMs()
+        # self.start_measuring_mode()
+        # while movelladot_pc_sdk.XsTimeStamp_nowMs() - startTime <= 5000:
+        #     self.get_measurments()
+        #     print(self.quat_data)
         for device in xdpcHandler.connectedDots():
-            print(f"\nResetting heading to default for device {device.portInfo().bluetoothAddress()}: ", end="", flush=True)
+            print(f"\nResetting heading for device {device.portInfo().bluetoothAddress()}: ", end="", flush=True)
             if device.resetOrientation(movelladot_pc_sdk.XRM_DefaultAlignment):
                 print("OK", end="", flush=True)
             else:
                 print(f"NOK: {device.lastResultText()}", end="", flush=True)
         print("\n", end="", flush=True) 
-
+        # self.stop_measuring_mode()
+        
     def get_measurments(self):
         dev = 0 #counter for the number of device    
         if self.devices.packetsAvailable():
