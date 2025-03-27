@@ -506,7 +506,6 @@ class IMURecordingStudio(tk.Tk):
     # TODO: More work is needed here
     def update_imu_plot(self):
         self.new_joints = DEFAULT_SETTINGS.skeleton_pose_laying_joints()
-        self.unitVector = np.array([0, 1, 0])
 
         while self.thread_flag[2]:
             self.imu.get_measurments()
@@ -515,7 +514,7 @@ class IMURecordingStudio(tk.Tk):
             for legSegment in range(len(self.imu_comboboxes)):
                 deviceIdx = self.imu_ordered_configuration[legSegment]
                 if deviceIdx!=-1: 
-                    q = quaternions[deviceIdx, :]
+                    q = np.round(quaternions[deviceIdx, :],4)
                     rotationMatrix = self.get_rotation_matrix_quaternions(q)
                     self.rotate_leg_segment(self.imu_combobox_labels[legSegment]['text'][:-1], rotationMatrix)
             
@@ -532,10 +531,9 @@ class IMURecordingStudio(tk.Tk):
             self.canvas.draw()     
 
             if self.reset_heading_flag:
-                self.imu.reset_heading()
-                self.reset_heading_flag = False
-
-
+                self.imu.reset_heading_flag = True
+                self.reset_heading_flag = False # Set it to False again
+    
     #Rotation matrix from quaternions as input
     def get_rotation_matrix_quaternions(self, qVector): # returns the rotation matrix from qunternions as input
         q0 = qVector[0]
@@ -563,7 +561,6 @@ class IMURecordingStudio(tk.Tk):
                         [r10, r11, r12],
                         [r20, r21, r22]])
     
-
     def get_pose(self):
         self.pose = 'laying' # TODO: change to read from a dropdown menu
         if self.pose == 'sitting':
@@ -581,7 +578,7 @@ class IMURecordingStudio(tk.Tk):
             stop = self.joints['Left Knee'] - start 
             norm = stop/np.linalg.norm(stop)
             rotated = np.dot(rotationMatrix, norm)
-            if not np.isnan(norm).any():
+            if not np.isnan(rotated).any():
                 self.new_joints['Left Knee'] = rotated *np.linalg.norm(stop) + start
                 self.new_joints['Left Ankle'] = self.new_joints['Left Ankle'] + (self.new_joints['Left Knee'] - temp)
                 self.new_joints['Left Toes'] = self.new_joints['Left Toes'] + (self.new_joints['Left Knee'] - temp)
@@ -594,7 +591,7 @@ class IMURecordingStudio(tk.Tk):
             stop = self.joints['Left Ankle'] - start 
             norm = stop/np.linalg.norm(stop)
             rotated = np.dot(rotationMatrix, norm)
-            if not np.isnan(norm).any():
+            if not np.isnan(rotated).any():
                 self.new_joints['Left Ankle'] = rotated *np.linalg.norm(stop) + start
                 self.new_joints['Left Toes'] = self.new_joints['Left Toes'] + (self.new_joints['Left Ankle'] - temp)
    
@@ -603,7 +600,7 @@ class IMURecordingStudio(tk.Tk):
             stop = self.joints['Left Toes'] - start 
             norm = stop/np.linalg.norm(stop)
             rotated = np.dot(rotationMatrix, norm)
-            if not np.isnan(norm).any():
+            if not np.isnan(rotated).any():
                 self.new_joints['Left Toes'] = rotated *np.linalg.norm(stop) + start
    
         elif legSegment == 'Right Thigh':
@@ -612,7 +609,7 @@ class IMURecordingStudio(tk.Tk):
             stop = self.joints['Right Knee'] - start 
             norm = stop/np.linalg.norm(stop)
             rotated = np.dot(rotationMatrix, norm)
-            if not np.isnan(norm).any():
+            if not np.isnan(rotated).any():
                 self.new_joints['Right Knee'] = rotated *np.linalg.norm(stop) + start
                 self.new_joints['Right Ankle'] = self.new_joints['Right Ankle'] + (self.new_joints['Right Knee'] - temp)
                 self.new_joints['Right Toes'] = self.new_joints['Right Toes'] + (self.new_joints['Right Knee'] - temp)
@@ -623,7 +620,7 @@ class IMURecordingStudio(tk.Tk):
             stop = self.joints['Right Ankle'] - start 
             norm = stop/np.linalg.norm(stop)
             rotated = np.dot(rotationMatrix, norm)
-            if not np.isnan(norm).any():
+            if not np.isnan(rotated).any():
                 self.new_joints['Right Ankle'] = rotated *np.linalg.norm(stop) + start
                 self.new_joints['Right Toes'] = self.new_joints['Right Toes'] + (self.new_joints['Right Ankle'] - temp)
 
@@ -632,7 +629,7 @@ class IMURecordingStudio(tk.Tk):
             stop = self.joints['Right Toes'] - start 
             norm = stop/np.linalg.norm(stop)
             rotated = np.dot(rotationMatrix, norm)
-            if not np.isnan(norm).any():
+            if not np.isnan(rotated).any():
                 self.new_joints['Right Toes'] = rotated *np.linalg.norm(stop) + start
 
     def reset_heading(self):

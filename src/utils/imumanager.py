@@ -10,6 +10,8 @@ class IMUManager:
     def __init__(self, parms): # connect sensors
         self.frame_rate = parms    
         self.devices = self.conenct_IMU_sensors()
+        self.reset_heading_flag = False # Flag to perfrom heading reset, returns to false afterwards
+        self.reset_heading_status = False # If is False then heading is set to Default
         
         numOfDevices = len(self.devices.connectedDots())
         self.acc_data = np.empty([numOfDevices, 3]) #No sure if should be filled with Nan instead
@@ -58,15 +60,14 @@ class IMUManager:
     
     def disconnect_IMU_sensors(self):
         xdpcHandler = self.devices
-        self.start_measuring_mode()
+        # self.start_measuring_mode()
         self.reset_heading_default()
-        self.stop_measuring_mode()
+        # self.stop_measuring_mode()
         xdpcHandler.cleanup()
         del xdpcHandler
 
     def sync_IMU_sensors(self):
         xdpcHandler = self.devices
-        
         manager = xdpcHandler.manager()
         deviceList = xdpcHandler.connectedDots()
         print(f"\nStarting sync for connected devices... Root node: {deviceList[-1].bluetoothAddress()}")
@@ -76,7 +77,6 @@ class IMUManager:
             if manager.lastResult() != movelladot_pc_sdk.XRV_SYNC_COULD_NOT_START:
                 print("Sync could not be started. Aborting.")
                 xdpcHandler.cleanup()
-                exit(-1)
 
             # If (some) devices are already in sync mode.Disable sync on all devices first.
             manager.stopSync()
@@ -84,10 +84,10 @@ class IMUManager:
             if not manager.startSync(deviceList[-1].bluetoothAddress()):
                 print(f"Could not start sync. Reason: {manager.lastResultText()}. Aborting.")
                 xdpcHandler.cleanup()
-                exit(-1)  
 
     def start_measuring_mode(self):
         xdpcHandler = self.devices
+        print("\nStarting measurement...")
         for device in xdpcHandler.connectedDots():
             if not device.startMeasurement(movelladot_pc_sdk.XsPayloadMode_CustomMode4):
                 print(f"Could not put device into measurement mode. Reason: {device.lastResultText()}")
@@ -108,25 +108,21 @@ class IMUManager:
             print(f"\nResetting heading to default for device {device.portInfo().bluetoothAddress()}: ", end="", flush=True)
             if device.resetOrientation(movelladot_pc_sdk.XRM_DefaultAlignment):
                 print("OK", end="", flush=True)
+                self.reset_heading_status = False
             else:
                 print(f"NOK: {device.lastResultText()}", end="", flush=True)
         print("\n", end="", flush=True)
 
     def reset_heading(self):   
         xdpcHandler = self.devices
-        # startTime = movelladot_pc_sdk.XsTimeStamp_nowMs()
-        # self.start_measuring_mode()
-        # while movelladot_pc_sdk.XsTimeStamp_nowMs() - startTime <= 5000:
-        #     self.get_measurments()
-        #     print(self.quat_data)
         for device in xdpcHandler.connectedDots():
             print(f"\nResetting heading for device {device.portInfo().bluetoothAddress()}: ", end="", flush=True)
-            if device.resetOrientation(movelladot_pc_sdk.XRM_DefaultAlignment):
+            if device.resetOrientation(movelladot_pc_sdk.XRM_Heading):
                 print("OK", end="", flush=True)
             else:
                 print(f"NOK: {device.lastResultText()}", end="", flush=True)
         print("\n", end="", flush=True) 
-        # self.stop_measuring_mode()
+        self.reset_heading_status = True
         
     def get_measurments(self):
         dev = 0 #counter for the number of device    
@@ -157,6 +153,10 @@ class IMUManager:
                     self.quat_data[dev, :] = q
 
                 dev = dev + 1
+
+            if self.reset_heading_flag:
+                self.reset_heading()
+                self.reset_heading_flag = False
 
             if len(self.devices.connectedDots())== 1:
                     self.reshape_measurments()
