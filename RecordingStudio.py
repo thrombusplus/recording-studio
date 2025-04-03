@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+from tkinter import filedialog
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import time
@@ -7,6 +8,7 @@ from threading import Thread
 from IPython import get_ipython
 import numpy as np
 import copy
+import os
 from src.utils import *
 
 # Main application class for IMU Recording Studio
@@ -15,11 +17,15 @@ class IMURecordingStudio(tk.Tk):
         super().__init__()
 
         # Global variables
+        # Constants
+        self.MAXCAMERAS = DEFAULT_SETTINGS.max_cameras() # Maximum number of cameras
+        self.EXERCISES = DEFAULT_SETTINGS.exercises_list() # List with exercises
+
+        # Variables
         self.imu_status_lamps = [] # List of IMU lamps
         self.imu_status_labels = [] # List of IMU labels
         self.imu_battery_status_labels = [] # List of labels with status labels
         self.imu_tags = [] # List With the tags from each IMU
-        self.MAXCAMERAS = DEFAULT_SETTINGS.max_cameras() # Maximum number of cameras
         self.camera_lamps = [] # List of camera lamps
         self.camera_labels = [] # List of camera labels
         self.InitiatedCameras = [] # List of initiated cameras
@@ -58,7 +64,7 @@ class IMURecordingStudio(tk.Tk):
         self.settings_tab = ttk.Frame(self.tabControl)
         self.tabControl.add(self.settings_tab, text='Settings')
         
-        self.tabControl.pack(expand=1, fill="both")
+        self.tabControl.pack(expand=1, fill='both')
         
         # Setup the main tab (IMU Vector and Camera Views)
         self.create_main_tab()
@@ -93,19 +99,51 @@ class IMURecordingStudio(tk.Tk):
 
         # Create matplotlib figures for the camera views
         self.create_camera_views(camera_frame)
-        
         # Create matplotlib figure for IMU Vector view
         self.create_imu_vector_view(imu_frame)
-
         # Create camera views control buttons
         self.create_camera_control_buttons(camera_control_frame)
-        
+        # Crearte the imu control buttons
         self.create_imu_control_button(IMU_control_frame)
+        # Create the main frunctionality buttons
+        self.create_functionality_frame_buttons(functionality_frame)
 
-        # Create buttons in functionality_frame
-        ttk.Button(functionality_frame, text="Start Recording").pack(pady=5, side=tk.LEFT, anchor='nw')
-        ttk.Button(functionality_frame, text="Stop Recording").pack(padx=20, pady=5, side=tk.LEFT, anchor='nw')
-        
+    def create_functionality_frame_buttons(self, frame):
+        # Save directory label
+        save_directory_label=ttk.Label(frame, text='Saving directory:')
+        save_directory_label.grid(row=0, column=0, columnspan=1, padx=10, pady=10, sticky='w')
+        # Save directory field
+        self.save_directory_field=ttk.Label(frame, text='', wraplength=150)
+        self.save_directory_field.grid(row=0, column=2, columnspan=1, padx=10, pady=10, sticky='w')
+        # Save direcoty selection button
+        save_directory_button=ttk.Button(frame, text='Save to...', command=self.update_saving_directory)
+        save_directory_button.grid(row=1, column=2, columnspan=1, padx=10, pady=10, sticky='w')
+
+        # Patient's ID label
+        patients_id_label=ttk.Label(frame, text='Patient ID:')
+        patients_id_label.grid(row=2, column=0, columnspan=1, padx=10, pady=10, sticky='w')
+        # Patient's ID Field
+        self.patients_id_field=ttk.Entry(frame, validate='focusout', validatecommand=self.check_patient_id)
+        self.patients_id_field.grid(row=2, column=2, columnspan=1, padx=10, pady=10, sticky='w')
+        # Patient's ID report label
+        self.patient_id_check_label=ttk.Label(frame, text='')
+        self.patient_id_check_label.grid(row=2, column=3, columnspan=1, padx=10, pady=10, sticky='w')
+
+
+        # Exercise List Label
+        exercise_list_label=ttk.Label(frame, text='Exercise:')
+        exercise_list_label.grid(row=3, column=0, columnspan=1, padx=10, pady=10, sticky='w')
+        # List for selectring the exercises - for metadata.
+        self.exercises_list=ttk.Combobox(frame, text ='', state='readonly' , values=self.EXERCISES,)
+        self.exercises_list.grid(row=3, column=2, rowspan=1, padx=10, pady=10, sticky='w')
+
+        # Create Start/ Stop buttons in functionality_frame
+        start_recording=ttk.Button(frame, text="Start Recording")
+        start_recording.grid(row=4, column=0, columnspan=1, padx=10, pady=10, sticky='w')
+        stop_recording=ttk.Button(frame, text="Stop Recording")
+        stop_recording.grid(row=4, column=2, columnspan=1, padx=10, pady=10, sticky='w')
+
+    
     def create_camera_views(self, frame):
         # Camera 1 View (using Matplotlib as placeholder)
         self.fig1, self.ax1 = plt.subplots(figsize=(4, 3))
@@ -248,11 +286,34 @@ class IMURecordingStudio(tk.Tk):
         lamp = ttk.Label(frame, text="Connected", background="Green", width=10)
         lamp.grid(row=row, column=column+1, padx=10)
 
-        #store each lamp in a dictionary for future modification
+        # store each lamp in a dictionary for future modification
         self.camera_lamps.append(lamp)
 
+    def update_saving_directory(self):
+        self.saving_directory = filedialog.askdirectory()
+        self.save_directory_field['text'] = self.saving_directory
+
+    def check_patient_id(self):
+        if self.patients_id_field['text'] !='':
+            if self.save_directory_field['text'] == '':
+                self.patient_id_check_label['text'] = 'Select a saving dir!'
+                self.patient_id_check_label['background'] = 'red'
+                self.patients_id_field.delete(0,'end')
+            else:
+                path = os.path.join(self.save_directory_field['text'], self.patients_id_field.get())
+                try:
+                    os.makedirs(path, exist_ok=False)
+                    self.patient_id_check_label['background'] = 'green' 
+                    self.patient_id_check_label['text'] = 'Folder created!'
+                except Exception as e:
+                    self.patient_id_check_label['text'] = 'ID already in use!'
+                    self.patient_id_check_label['background'] = 'orange'
+                    print(f'This patient ID already exists. Error: {e}')
+        return True
+
+
     def connect_webcams(self):
-        #set camera_lamps to OFF - in case of reconnection
+        # set camera_lamps to OFF - in case of reconnection
         for lamp in self.camera_lamps:
             lamp.destroy()
 
@@ -618,7 +679,7 @@ class IMURecordingStudio(tk.Tk):
         
       # Rotate the left foot segment
       elif legSegment == 'Left Foot':
-        temp_toes = copy.deepcopy(self.new_joints['Left Toes'])
+        # temp_toes = copy.deepcopy(self.new_joints['Left Toes'])
         start = self.joints['Left Ankle']
         stop = self.joints['Left Toes'] - start
         norm = stop / np.linalg.norm(stop)
@@ -626,8 +687,8 @@ class IMURecordingStudio(tk.Tk):
         
         if not np.isnan(rotated).any():
             self.new_joints['Left Toes'] = rotated * np.linalg.norm(stop) + start
-            displacement = self.new_joints['Left Toes'] - temp_toes
-            move_chain([ 'Left Ankle'], displacement)
+            # displacement = self.new_joints['Left Toes'] - temp_toes
+            # move_chain([ 'Left Ankle'], displacement)
       
       # Rotate the right thigh segment
       if legSegment == 'Right Thigh':
@@ -666,8 +727,8 @@ class IMURecordingStudio(tk.Tk):
         
         if not np.isnan(rotated).any():
             self.new_joints['Right Toes'] = rotated * np.linalg.norm(stop) + start
-            displacement = self.new_joints['Right Toes'] - temp_toes
-            move_chain(['Right Ankle'], displacement)
+            # displacement = self.new_joints['Right Toes'] - temp_toes
+            # move_chain(['Right Ankle'], displacement)
 
     def reset_heading(self):
         # self.imu.reset_heading()  

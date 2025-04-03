@@ -2,10 +2,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class DEFAULT_SETTINGS: 
-    def exercises_list(self):
-            list = tuple()
-            list.append("Leg raises")
-            list.append("Push-ups")
+    def exercises_list():
+        list = []
+        list.append('Leg raises')
+        list.append('Push-ups')
+        return list
 
     def max_cameras(): # the maximum number of cameras that can be connected
         return int(5)
