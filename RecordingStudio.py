@@ -635,24 +635,13 @@ class IMURecordingStudio(tk.Tk):
         self.canvas.draw() 
         
     def rotate_leg_segment(self, legSegment, rotationMatrix):
-    
-    #   def rotate_joint(start, stop, rotationMatrix):
-        
-    #     direction = stop - start  # Get direction vector from start to stop
-    #     length = np.linalg.norm(direction)  # Lenght of segment
-    #     if length == 0:
-    #         return stop  # Avoid division by zero (if length is 0 return the stop point)
-    #     norm = direction / length
-    #     rotated = np.dot(rotationMatrix, norm)
-       
-    #     return start + rotated * length  # return the new position
-      
       #Function to move the entire chain of joints by a displacement 
       def move_chain(joint_names, displacement):
         #   for joint in joint_names:
         self.new_joints[joint_names] += displacement   #update the position of each joint 
-    
-    
+
+      # Left leg segments
+      # Left Thight rotation
       if legSegment == 'Left Thigh':
          temp_knee = copy.deepcopy(self.new_joints['Left Knee'])  # Store the current position 
          start = self.joints['Left Hip']  #start point is the left hip
@@ -666,8 +655,7 @@ class IMURecordingStudio(tk.Tk):
            if self.imu_comboboxes[1].get() == "None":
              move_chain('Left Ankle', displacement)
            if self.imu_comboboxes[2].get() == "None":
-             move_chain('Left Toes', displacement) 
-        
+             move_chain('Left Toes', displacement)  
 
       # Rotate the left calf segment 
       elif legSegment == 'Left Calf':
@@ -683,58 +671,53 @@ class IMURecordingStudio(tk.Tk):
             if self.imu_comboboxes[2].get() == "None":
              move_chain('Left Toes', displacement) 
 
-        
       # Rotate the left foot segment
       elif legSegment == 'Left Foot':
-        # temp_toes = copy.deepcopy(self.new_joints['Left Toes'])
         start = self.joints['Left Ankle']
         stop = self.joints['Left Toes'] - start
         norm = stop / np.linalg.norm(stop)
         rotated = np.dot(rotationMatrix, norm)
-        
         if not np.isnan(rotated).any():
-            self.new_joints['Left Toes'] = rotated * np.linalg.norm(stop) + self.new_joints['Left Ankle']
-                        
+            self.new_joints['Left Toes'] = rotated * np.linalg.norm(stop) + self.new_joints['Left Ankle']            
       
-      # Rotate the right thigh segment
+      # Right leg segments rotation
+      # Right Thight rotation
       if legSegment == 'Right Thigh':
-        temp_knee = copy.deepcopy(self.new_joints['Right Knee'])  
-        start = self.joints['Right Hip']  
-        stop = self.joints['Right Knee'] - start   
-        norm = stop / np.linalg.norm(stop) 
-        rotated = np.dot(rotationMatrix, norm)  
-        
-        if not np.isnan(rotated).any():   
-            self.new_joints['Right Knee'] = start + rotated * np.linalg.norm(stop)  
-            displacement = self.new_joints['Right Knee'] - temp_knee  
-            move_chain(['Right Ankle', 'Right Toes'], displacement)  
+         temp_knee = copy.deepcopy(self.new_joints['Right Knee'])  # Store the current position 
+         start = self.joints['Right Hip']  #start point is the left hip
+         stop = self.joints['Right Knee'] - start  #direction from hip to knee
+         norm = stop / np.linalg.norm(stop)  # Normalize the direction vector
+         rotated = np.dot(rotationMatrix, norm)  # Apply the rotation matrix
+         
+         if not np.isnan(rotated).any(): 
+           self.new_joints['Right Knee'] = rotated * np.linalg.norm(stop) + start  # scale the rotated vetcor to the original length
+           displacement = self.new_joints['Right Knee'] - temp_knee  #update new knee position
+           if self.imu_comboboxes[4].get() == "None":
+             move_chain('Right Ankle', displacement)
+           if self.imu_comboboxes[5].get() == "None":
+             move_chain('Right Toes', displacement) 
 
-      # Rotate the right cafl segment          
+      # Rotate the left calf segment 
       elif legSegment == 'Right Calf':
-        temp_ankle = copy.deepcopy(self.new_joints['Right Ankle'])  
-        start = self.joints['Right Knee']  
-        stop = self.joints['Right Ankle'] - start   
-        norm = stop / np.linalg.norm(stop) 
-        rotated = np.dot(rotationMatrix, norm)  
-        
+        temp_ankle = copy.deepcopy(self.new_joints['Right Ankle'])
+        start = self.joints['Right Knee'] 
+        stop = self.joints['Right Ankle'] - start # direction from knee to ankle
+        norm = stop / np.linalg.norm(stop)
+        rotated = np.dot(rotationMatrix, norm)
         if not np.isnan(rotated).any():
-            self.new_joints['Right Ankle'] = start +  rotated * np.linalg.norm(stop) 
-            # displacement = self.new_joints['Right Ankle'] - temp_ankle  
-            # move_chain(['Right Toes'], displacement)  
+            self.new_joints['Right Ankle'] = rotated * np.linalg.norm(stop) + self.new_joints['Right Knee']
+            displacement = self.new_joints['Right Ankle'] - temp_ankle 
+            if self.imu_comboboxes[5].get() == "None":
+             move_chain('Right Toes', displacement) 
         
-
-    # Rotate the right foot segment
+      # Rotate the left foot segment
       elif legSegment == 'Right Foot':
-        temp_toes = copy.deepcopy(self.new_joints['Right Toes'])
         start = self.joints['Right Ankle']
         stop = self.joints['Right Toes'] - start
         norm = stop / np.linalg.norm(stop)
         rotated = np.dot(rotationMatrix, norm)
-        
         if not np.isnan(rotated).any():
-            self.new_joints['Right Toes'] = rotated * np.linalg.norm(stop) + start
-            # displacement = self.new_joints['Right Toes'] - temp_toes
-            # move_chain(['Right Ankle'], displacement)
+            self.new_joints['Right Toes'] = rotated * np.linalg.norm(stop) + self.new_joints['Right Ankle']
 
     def reset_heading(self):
         # self.imu.reset_heading()  
