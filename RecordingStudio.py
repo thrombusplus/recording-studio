@@ -129,7 +129,6 @@ class IMURecordingStudio(tk.Tk):
         self.patient_id_check_label=ttk.Label(frame, text='')
         self.patient_id_check_label.grid(row=2, column=3, columnspan=1, padx=10, pady=10, sticky='w')
 
-
         # Exercise List Label
         exercise_list_label=ttk.Label(frame, text='Exercise:')
         exercise_list_label.grid(row=3, column=0, columnspan=1, padx=10, pady=10, sticky='w')
@@ -193,10 +192,15 @@ class IMURecordingStudio(tk.Tk):
     def create_imu_control_button(self, frame):
         start_stop_imu_button = ttk.Button(frame, text="Start/Stop streaming", command=self.start_stop_button_streaming_imu)
         start_stop_imu_button.grid(row=0, column=1, columnspan=1)
-        start_stop_imu_button.place(x=150)
+        # start_stop_imu_button.place(x=150)
 
         imu_reset_heading_button =ttk.Button(frame, text="Reset Heading", command=self.reset_heading)
         imu_reset_heading_button.grid(row=0,column=0, columnspan=1 )
+
+        self.imu_pose_selection=ttk.Combobox(frame, state="readonly", values = ["Sitting","Laying"])
+        self.imu_pose_selection.set("Sitting")
+        self.imu_pose_selection.grid(row=0,column=3, columnspan=1 )
+    
 
     def create_settings_tab(self):
         # IMU Sensor Status Frame
@@ -560,13 +564,12 @@ class IMURecordingStudio(tk.Tk):
         self.ax.set_ylim3d([-3.5, 3.5])
         self.ax.set_zlim3d([-3.5, 3.5])
         self.ax.set_autoscale_on(False)
-        
         self.get_pose()
-        self.canvas.draw() 
+        
 
     # TODO: More work is needed here
     def update_imu_plot(self):
-        self.new_joints = DEFAULT_SETTINGS.skeleton_pose_laying_joints()
+        self.new_joints = copy.deepcopy(self.joints) # Create a copy of the joints to be updated
 
         while self.thread_flag[2]:
             self.imu.get_measurments()
@@ -576,6 +579,7 @@ class IMURecordingStudio(tk.Tk):
                 deviceIdx = self.imu_ordered_configuration[legSegment]
                 if deviceIdx!=-1: 
                     q = np.round(quaternions[deviceIdx, :],4)
+                    print(q)
                     rotationMatrix = self.get_rotation_matrix_quaternions(q)
                     self.rotate_leg_segment(self.imu_combobox_labels[legSegment]['text'][:-1], rotationMatrix)
             
@@ -623,31 +627,30 @@ class IMURecordingStudio(tk.Tk):
                         [r20, r21, r22]])
     
     def get_pose(self):
-        self.pose = 'laying' # TODO: change to read from a dropdown menu
-        if self.pose == 'sitting':
-            print("TODO")
+        if self.imu_pose_selection.get() == 'Sitting':
+            self.joints = DEFAULT_SETTINGS.skeleton_pose_sitting_joints()
         else:
             self.joints = DEFAULT_SETTINGS.skeleton_pose_laying_joints()
-            
         DEFAULT_SETTINGS.plot_body_parts(self.ax, self.joints)
+        self.canvas.draw() 
         
     def rotate_leg_segment(self, legSegment, rotationMatrix):
     
-      def rotate_joint(start, stop, rotationMatrix):
+    #   def rotate_joint(start, stop, rotationMatrix):
         
-        direction = stop - start  # Get direction vector from start to stop
-        length = np.linalg.norm(direction)  # Lenght of segment
-        if length == 0:
-            return stop  # Avoid division by zero (if length is 0 return the stop point)
-        norm = direction / length
-        rotated = np.dot(rotationMatrix, norm)
+    #     direction = stop - start  # Get direction vector from start to stop
+    #     length = np.linalg.norm(direction)  # Lenght of segment
+    #     if length == 0:
+    #         return stop  # Avoid division by zero (if length is 0 return the stop point)
+    #     norm = direction / length
+    #     rotated = np.dot(rotationMatrix, norm)
        
-        return start + rotated * length  # return the new position
+    #     return start + rotated * length  # return the new position
       
       #Function to move the entire chain of joints by a displacement 
       def move_chain(joint_names, displacement):
-          for joint in joint_names:
-            self.new_joints[joint] += displacement   #update the position of each joint 
+        #   for joint in joint_names:
+        self.new_joints[joint_names] += displacement   #update the position of each joint 
     
     
       if legSegment == 'Left Thigh':
@@ -658,9 +661,12 @@ class IMURecordingStudio(tk.Tk):
          rotated = np.dot(rotationMatrix, norm)  # Apply the rotation matrix
          
          if not np.isnan(rotated).any(): 
-           self.new_joints['Left Knee'] = start + rotated * np.linalg.norm(stop)   # scale the rotated vetcor to the original length
+           self.new_joints['Left Knee'] = rotated * np.linalg.norm(stop) + start  # scale the rotated vetcor to the original length
            displacement = self.new_joints['Left Knee'] - temp_knee  #update new knee position
-           move_chain(['Left Ankle', 'Left Toes'], displacement)  #calculate the displacement of the knee
+           if self.imu_comboboxes[1].get() == "None":
+             move_chain('Left Ankle', displacement)
+           if self.imu_comboboxes[2].get() == "None":
+             move_chain('Left Toes', displacement) 
         
 
       # Rotate the left calf segment 
@@ -672,9 +678,10 @@ class IMURecordingStudio(tk.Tk):
         rotated = np.dot(rotationMatrix, norm)
 
         if not np.isnan(rotated).any():
-            self.new_joints['Left Ankle'] = rotated * np.linalg.norm(stop) + start
+            self.new_joints['Left Ankle'] = rotated * np.linalg.norm(stop) + self.new_joints['Left Knee']
             displacement = self.new_joints['Left Ankle'] - temp_ankle 
-            move_chain(['Left Toes'], displacement)
+            if self.imu_comboboxes[2].get() == "None":
+             move_chain('Left Toes', displacement) 
 
         
       # Rotate the left foot segment
@@ -686,9 +693,8 @@ class IMURecordingStudio(tk.Tk):
         rotated = np.dot(rotationMatrix, norm)
         
         if not np.isnan(rotated).any():
-            self.new_joints['Left Toes'] = rotated * np.linalg.norm(stop) + start
-            # displacement = self.new_joints['Left Toes'] - temp_toes
-            # move_chain([ 'Left Ankle'], displacement)
+            self.new_joints['Left Toes'] = rotated * np.linalg.norm(stop) + self.new_joints['Left Ankle']
+                        
       
       # Rotate the right thigh segment
       if legSegment == 'Right Thigh':
@@ -713,8 +719,8 @@ class IMURecordingStudio(tk.Tk):
         
         if not np.isnan(rotated).any():
             self.new_joints['Right Ankle'] = start +  rotated * np.linalg.norm(stop) 
-            displacement = self.new_joints['Right Ankle'] - temp_ankle  
-            move_chain(['Right Toes'], displacement)  
+            # displacement = self.new_joints['Right Ankle'] - temp_ankle  
+            # move_chain(['Right Toes'], displacement)  
         
 
     # Rotate the right foot segment
