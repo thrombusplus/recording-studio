@@ -757,7 +757,8 @@ class IMURecordingStudio(tk.Tk):
                 self.initiate_plot()
                 self.imu.start_measuring_mode()
                 self.thread_flag[2] = True
-
+                self.thread[2] = Thread(target=self.update_imu_plot)
+                
                 if not self.thread[2].is_alive():
                     self.thread[2].start()
                     print("IMU streaming started")
@@ -933,7 +934,6 @@ class IMURecordingStudio(tk.Tk):
     def reset_heading(self):
         # self.imu.reset_heading()  
         self.reset_heading_flag = True
-
 
 # Run the application
 if __name__ == "__main__":
