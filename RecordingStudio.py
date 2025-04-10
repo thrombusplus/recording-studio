@@ -47,17 +47,21 @@ class IMURecordingStudio(tk.Tk):
         self.title("IMU Recording Studio")
         self.geometry("850x800")
         
-        # Create Tab control
+        # Initate a Tab control
         self.tabControl = ttk.Notebook(self)
         
-        # Create Main tab
+        # Initiate Main tab
         self.main_tab = ttk.Frame(self.tabControl)
         self.tabControl.add(self.main_tab, text='Main')
         
-        # Create Settings tab
+        # Initiate Settings tab
         self.settings_tab = ttk.Frame(self.tabControl)
         self.tabControl.add(self.settings_tab, text='Settings')
-        
+        self.tabControl.pack(expand=1, fill="both")
+
+        # Initiate the Visialization tab
+        self.visualization_tab = ttk.Frame(self.tabControl)
+        self.tabControl.add(self.visualization_tab, text='Visualuzation')
         self.tabControl.pack(expand=1, fill="both")
         
         # Setup the main tab (IMU Vector and Camera Views)
@@ -65,6 +69,9 @@ class IMURecordingStudio(tk.Tk):
         
         # Setup the settings tab (IMU Sensor Status)
         self.create_settings_tab()
+
+        # Setup the Record Visualization tab
+        self.create_visualization_tab()
 
     def create_main_tab(self):
         # Camera Views Frame
@@ -100,6 +107,7 @@ class IMURecordingStudio(tk.Tk):
         # Create camera views control buttons
         self.create_camera_control_buttons(camera_control_frame)
         
+        # Create the imu control buttons
         self.create_imu_control_button(IMU_control_frame)
 
         # Create buttons in functionality_frame
@@ -193,9 +201,6 @@ class IMURecordingStudio(tk.Tk):
             imu_combo.grid(row=imu+3, column=1, columnspan=1)
             imu_combo.current(0)
             self.imu_comboboxes.append(imu_combo)
-        
-        # imu_reset_heading_button =ttk.Button(self.imu_configuration_frame, text="Reset Heading", command=self.reset_heading)
-        # imu_reset_heading_button.grid(row=imu+4,column=0, columnspan=1 )
 
         imu_lock_button = ttk.Button(self.imu_configuration_frame, text="Lock configuration", state="enabled", command=self.lock_imu_configuration)    
         imu_lock_button.grid(row=imu+4, column=1, columnspan=1)
@@ -214,15 +219,7 @@ class IMURecordingStudio(tk.Tk):
         self.connect_camera_button.grid(row=0, column=0, columnspan=2, pady=10)
        
         self.disconnect_camera_button = ttk.Button(self.camera_status_frame, text="Diconnect Cameras", command=self.disconnect_webcams)
-        self.disconnect_camera_button.grid(row=1, column=0, columnspan=2, pady=10)
-
-        # # Log Label
-        # log_label = ttk.Label(self.camera_status_frame, text="Log:")
-        # log_label.grid(row=4, column=0, sticky='w')
-
-        # # Log text placeholder
-        # log_placeholder = ttk.Label(self.camera_status_frame, text="", relief="sunken")
-        # log_placeholder.grid(row=5, column=0, columnspan=2, padx=10, pady=10, sticky='ew')     
+        self.disconnect_camera_button.grid(row=1, column=0, columnspan=2, pady=10)   
 
     def create_imu_status_lamp(self, frame, text, row, column, batteryLevel):
         label = ttk.Label(frame, text=text)
@@ -251,6 +248,34 @@ class IMURecordingStudio(tk.Tk):
         #store each lamp in a dictionary for future modification
         self.camera_lamps.append(lamp)
 
+    def create_visualization_tab(self):
+        # Camera Views Frame
+        visualize_camera_frame = ttk.LabelFrame(self.visualization_tab, width=800, height=250, text="Camera Visualization")
+        visualize_camera_frame.grid(row=0, column=0, padx=10, pady=10, columnspan=1)
+        
+        # Camera 3 Visualization View (using Matplotlib as placeholder)
+        self.fig3, self.ax3 = plt.subplots(figsize=(4, 3))
+        self.ax3.set_title("Front View")
+        self.ax3.axis('off')
+        self.canvas3 = FigureCanvasTkAgg(self.fig1, master=visualize_camera_frame)
+        self.canvas3.draw()
+        self.canvas3.get_tk_widget().grid(row=0, column=0)
+        
+        # Camera 4 Visualization View (using Matplotlib as placeholder)
+        self.fig4, self.ax4 = plt.subplots(figsize=(4, 3))
+        self.ax4.set_title("Side View")
+        self.ax4.axis('off')
+        self.canvas4 = FigureCanvasTkAgg(self.fig2, master=visualize_camera_frame)
+        self.canvas4.draw()
+        self.canvas4.get_tk_widget().grid(row=0, column=2)
+
+        # IMU Data Views Frame
+        visualize_imus_frame = ttk.LabelFrame(self.visualization_tab, width=800, height=250, text="IMU Data Visualization")
+        visualize_imus_frame.grid(row=2, column=0, padx=10, pady=10, columnspan=1)
+
+        load_recordings_button = ttk.Button(visualize_imus_frame, text="Load Data", command=self.load_recordings)   
+        load_recordings_button.grid(row=3, column=0, padx=10, pady=10, columnspan=1)
+
     def connect_webcams(self):
         #set camera_lamps to OFF - in case of reconnection
         for lamp in self.camera_lamps:
@@ -278,7 +303,6 @@ class IMURecordingStudio(tk.Tk):
         for labels in self.camera_labels:
             labels.destroy()
             
-
         self.camera_list_1['values'] = self.idxInitiatedCameras
         self.camera_list_1['state'] = 'disabled'
         self.camera_list_2['values'] = self.idxInitiatedCameras
@@ -486,7 +510,6 @@ class IMURecordingStudio(tk.Tk):
                 self.thread[2] = Thread(target=self.update_imu_plot)
                 self.thread[2].start()
               
-
         else: 
             print("IMU configuration is not locked. Please proceed checking the configuration and lock it brefore start streaming")
     
@@ -588,7 +611,6 @@ class IMURecordingStudio(tk.Tk):
           for joint in joint_names:
             self.new_joints[joint] += displacement   #update the position of each joint 
     
-    
       if legSegment == 'Left Thigh':
          temp_knee = copy.deepcopy(self.new_joints['Left Knee'])  # Store the current position 
          start = self.joints['Left Hip']  #start point is the left hip
@@ -601,7 +623,6 @@ class IMURecordingStudio(tk.Tk):
            displacement = self.new_joints['Left Knee'] - temp_knee  #update new knee position
            move_chain(['Left Ankle', 'Left Toes'], displacement)  #calculate the displacement of the knee
         
-
       # Rotate the left calf segment 
       elif legSegment == 'Left Calf':
         temp_ankle = copy.deepcopy(self.new_joints['Left Ankle'])
@@ -655,7 +676,6 @@ class IMURecordingStudio(tk.Tk):
             displacement = self.new_joints['Right Ankle'] - temp_ankle  
             move_chain(['Right Toes'], displacement)  
         
-
     # Rotate the right foot segment
       elif legSegment == 'Right Foot':
         temp_toes = copy.deepcopy(self.new_joints['Right Toes'])
