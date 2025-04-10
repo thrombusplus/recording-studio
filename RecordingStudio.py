@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+from tkinter import filedialog
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import time
@@ -45,7 +46,7 @@ class IMURecordingStudio(tk.Tk):
 
        
         self.title("IMU Recording Studio")
-        self.geometry("850x800")
+        self.geometry("850x900")
         
         # Initate a Tab control
         self.tabControl = ttk.Notebook(self)
@@ -257,7 +258,7 @@ class IMURecordingStudio(tk.Tk):
         self.fig3, self.ax3 = plt.subplots(figsize=(4, 3))
         self.ax3.set_title("Front View")
         self.ax3.axis('off')
-        self.canvas3 = FigureCanvasTkAgg(self.fig1, master=visualize_camera_frame)
+        self.canvas3 = FigureCanvasTkAgg(self.fig3, master=visualize_camera_frame)
         self.canvas3.draw()
         self.canvas3.get_tk_widget().grid(row=0, column=0)
         
@@ -265,16 +266,57 @@ class IMURecordingStudio(tk.Tk):
         self.fig4, self.ax4 = plt.subplots(figsize=(4, 3))
         self.ax4.set_title("Side View")
         self.ax4.axis('off')
-        self.canvas4 = FigureCanvasTkAgg(self.fig2, master=visualize_camera_frame)
+        self.canvas4 = FigureCanvasTkAgg(self.fig4, master=visualize_camera_frame)
         self.canvas4.draw()
         self.canvas4.get_tk_widget().grid(row=0, column=2)
 
         # IMU Data Views Frame
-        visualize_imus_frame = ttk.LabelFrame(self.visualization_tab, width=800, height=250, text="IMU Data Visualization")
-        visualize_imus_frame.grid(row=2, column=0, padx=10, pady=10, columnspan=1)
+        visualize_imus_frame = ttk.LabelFrame(self.visualization_tab, width=800, height=200, text="IMU Data Visualization")
+        visualize_imus_frame.grid(row=1, column=0, padx=10, pady=10, columnspan=1)
+        self.fig5, self.ax5 = plt.subplots(figsize=(8, 2))
+        self.ax5.set_title("Imu Data")
+        self.ax5.axis('off')
+        self.canvas5 = FigureCanvasTkAgg(self.fig5, master=visualize_imus_frame)
+        self.canvas5.draw()
+        self.canvas5.get_tk_widget().grid(row=0, column=0)
 
-        load_recordings_button = ttk.Button(visualize_imus_frame, text="Load Data", command=self.load_recordings)   
-        load_recordings_button.grid(row=3, column=0, padx=10, pady=10, columnspan=1)
+        # Create IMU data visualization checkboxes
+        select_data_frame = ttk.LabelFrame(self.visualization_tab, text="IMU Data Visualization")
+        select_data_frame.grid(row=2, column=1, padx=10, pady=10, columnspan=1)
+        select_data_frame.place(x=420, y=595)
+
+        self.select_acceleration_tickbox = ttk.Checkbutton(select_data_frame, text="Acceleration")
+        self.select_acceleration_tickbox.grid(row=1, column=0, padx=10, pady=10, columnspan=1)
+        self.select_angular_velocity_tickbox = ttk.Checkbutton(select_data_frame, text="Angular Velocity")
+        self.select_angular_velocity_tickbox.grid(row=1, column=1, padx=10, pady=10, columnspan=1)
+        self.select_magnetic_filed_tickbox = ttk.Checkbutton(select_data_frame, text="Magnetic Field")
+        self.select_magnetic_filed_tickbox.grid(row=1, column=2, padx=10, pady=10, columnspan=1)
+    
+        #Drop down with available recordings
+        self.available_recording_combobox = ttk.Combobox(select_data_frame, state="disabled", values= 'None')
+        self.available_recording_combobox.grid(row=0, column=1, columnspan=1)
+        
+        load_recordings_button = ttk.Button(select_data_frame, text="Load Data", command=self.load_recordings)   
+        load_recordings_button.grid(row=0, column=0, padx=10, pady=10, columnspan=1)
+
+        # IMU Vector View
+        recorded_data_imu_vector_viewer_frame = ttk.LabelFrame(self.visualization_tab, width=400, height=200, text="IMU Vector View")   
+        recorded_data_imu_vector_viewer_frame.grid(row=2, column=0, padx=10, pady=10, columnspan=1) 
+        recorded_data_imu_vector_viewer_frame.place(x=10, y=595, width=390, height=200)
+        self.fig = plt.figure(figsize=(2, 2))
+        self.ax = self.fig.add_subplot(111, projection='3d')   
+        self.ax.set_title("IMU Vector View")
+        self.ax.axis('off')
+        self.canvas = FigureCanvasTkAgg(self.fig, master=recorded_data_imu_vector_viewer_frame)
+        self.canvas.draw()
+        self.canvas.get_tk_widget().pack()
+
+
+
+        
+
+
+        
 
     def connect_webcams(self):
         #set camera_lamps to OFF - in case of reconnection
@@ -692,6 +734,12 @@ class IMURecordingStudio(tk.Tk):
     def reset_heading(self):
         # self.imu.reset_heading()  
         self.reset_heading_flag = True
+
+
+    def load_recordings(self):
+        path = filedialog.askdirectory()
+        self.selected_data_dir = FileManager(path)
+        print(self.selected_data_dir.get_subfodlers())
 
 
 # Run the application
