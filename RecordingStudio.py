@@ -302,21 +302,15 @@ class IMURecordingStudio(tk.Tk):
         # IMU Vector View
         recorded_data_imu_vector_viewer_frame = ttk.LabelFrame(self.visualization_tab, width=400, height=200, text="IMU Vector View")   
         recorded_data_imu_vector_viewer_frame.grid(row=2, column=0, padx=10, pady=10, columnspan=1) 
-        recorded_data_imu_vector_viewer_frame.place(x=10, y=595, width=390, height=200)
-        self.fig = plt.figure(figsize=(2, 2))
-        self.ax = self.fig.add_subplot(111, projection='3d')   
-        self.ax.set_title("IMU Vector View")
-        self.ax.axis('off')
-        self.canvas = FigureCanvasTkAgg(self.fig, master=recorded_data_imu_vector_viewer_frame)
-        self.canvas.draw()
-        self.canvas.get_tk_widget().pack()
+        recorded_data_imu_vector_viewer_frame.place(x=10, y=595, width=390, height=250)
+        self.fig6 = plt.figure(figsize=(6, 4))
+        self.ax6 = self.fig6.add_subplot(111, projection='3d')   
+        self.ax6.set_title("IMU Vector View")
+        self.ax6.axis('off')
+        self.canvas6 = FigureCanvasTkAgg(self.fig6, master=recorded_data_imu_vector_viewer_frame)
+        self.canvas6.draw()
+        self.canvas6.get_tk_widget().pack()
 
-
-
-        
-
-
-        
 
     def connect_webcams(self):
         #set camera_lamps to OFF - in case of reconnection
