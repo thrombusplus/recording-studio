@@ -369,6 +369,11 @@ class IMURecordingStudio(tk.Tk):
         self.camera_list_1['state'] = 'readonly'
         self.camera_list_2['values'] = self.idxInitiatedCameras
         self.camera_list_2['state'] = 'readonly'
+
+        if self.idxInitiatedCameras:
+            default_idx =str(self.idxInitiatedCameras[0])
+            self.camera_list_1.set(default_idx)
+            self.camera_list_2.set(default_idx)
                       
     def openAvailableCameras(self):
         self.InitiatedCameras.clear()
@@ -387,13 +392,18 @@ class IMURecordingStudio(tk.Tk):
 
     # Threads for handling camera 1 and camera 2
     def camera1_thread(self):
-        camera_manager_1 = CameraManager(camera_num=1)
-
+        try:
+            cam_idx = int(self.camera_list_1.get())
+            camera_manager = self.InitiatedCameras[cam_idx]
+        except Exception as e:
+            print(f"[Camera 1 Thread] Could not initialize camera:{e}")
+            return
+        
         flag_index =1 if self.recording else 0
 
         while self.thread_flag[flag_index]:
             try:
-                frame_1 = camera_manager_1.get_frame()
+                frame_1 = camera_manager.get_frame()
                 self.latest_frame_cam1 = frame_1
                 
                 #Check if camera is already on recording mode
@@ -407,14 +417,19 @@ class IMURecordingStudio(tk.Tk):
             time.sleep(0.03)
 
     def camera2_thread (self):
-        camera_manager_2 = CameraManager(camera_num=2)
+        try:
+            cam_idx =int(self.camera_list_2.get())
+            camera_manager = self.InitiatedCameras[cam_idx]
+        except Exception as e:
+            print(f"[Camera 2 Thread] Could not initialize camera: {e}")
+            return
 
         flag_index =2 if self.recording else 1
 
 
         while self.thread_flag[flag_index]:
             try:
-                frame_2 = camera_manager_2.get_frame()
+                frame_2 = camera_manager.get_frame()
                 self.latest_frame_cam2 = frame_2  
 
                 if self.recording:
@@ -439,8 +454,9 @@ class IMURecordingStudio(tk.Tk):
         cam2_index = self.camera_list_2.get()
 
         if cam1_index == ''or cam2_index=='':
-            print("Please se;ect both camera views.")
+            print("Please select both camera views.")
             return
+        
         if cam1_index == cam2_index:
            print("Viewers have the same camera. Please select different cameras.")
            return
@@ -474,6 +490,9 @@ class IMURecordingStudio(tk.Tk):
         
 
     def update_view(self, threadNum, cameranumber, cameraview_axis, cameraview_canvas):
+        cam_idx = int(cameranumber)
+        print(f"[View] Starting update_view for camera index {cam_idx}")
+        
         #get frame from camera
         while self.thread_flag[threadNum] and self.InitiatedCameras[int(cameranumber)].streaming:# update axis
            try:
@@ -501,21 +520,28 @@ class IMURecordingStudio(tk.Tk):
         
         
     def start_stop_button_press(self):
+        if self.recording:
+            print("Cannot start/stop streaming during recording.")
 
         if self.InitiatedCameras == []:
            print("No cameras connected.")
            return
-        if self.InitiatedCameras[int(self.camera_list_1.get())].streaming:
+        
+        cam1=int(self.camera_list_1.get())
+        cam2=int(self.camera_list_2.get())
+
+        
+        if self.InitiatedCameras[cam1].streaming:
            self.stop_streaming_mode()
-           self.InitiatedCameras[int(self.camera_list_1.get())].streaming = False
-           self.InitiatedCameras[int(self.camera_list_2.get())].streaming = False
+           self.InitiatedCameras[cam1].streaming = False
+           self.InitiatedCameras[cam2].streaming = False
            self.camera_list_1['state'] = 'readonly'
            self.camera_list_2['state'] = 'readonly'
            print("Streaming stopped.")
         else:
            self.stream_webcam()
-           self.InitiatedCameras[int(self.camera_list_1.get())].streaming = True
-           self.InitiatedCameras[int(self.camera_list_2.get())].streaming = True
+           self.InitiatedCameras[cam1].streaming = True
+           self.InitiatedCameras[cam2].streaming = True
            self.camera_list_1['state'] = 'disabled'
            self.camera_list_2['state'] = 'disabled'
            print("Streaming started.")
@@ -688,6 +714,7 @@ class IMURecordingStudio(tk.Tk):
         #prepare flags and threads
         self.use_queue = True
         self.recording = True
+
         
         self.thread_flag[0] = True
         self.thread[0] =  Thread(target=self.data_collection_thread)
