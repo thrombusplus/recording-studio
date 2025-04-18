@@ -63,7 +63,13 @@ class IMURecordingStudio(tk.Tk):
         # Initiate the Visialization tab
         self.visualization_tab = ttk.Frame(self.tabControl)
         self.tabControl.add(self.visualization_tab, text='Visualuzation')
-        self.tabControl.pack(expand=1, fill="both")
+        self.visualization_tab.grid_rowconfigure(0, weight=1)
+        self.visualization_tab.grid_rowconfigure(1, weight=1)
+        self.visualization_tab.grid_rowconfigure(2, weight=1)
+        self.visualization_tab.grid_columnconfigure(0, weight=1)
+        self.visualization_tab.grid_columnconfigure(1, weight=1)
+        self.visualization_tab.grid_columnconfigure(2, weight=1)
+        self.visualization_tab.grid_columnconfigure(3, weight=1)
         
         # Setup the main tab (IMU Vector and Camera Views)
         self.create_main_tab()
@@ -175,21 +181,21 @@ class IMURecordingStudio(tk.Tk):
     def create_settings_tab(self):
         # IMU Sensor Status Frame
         self.imu_control_frame = ttk.LabelFrame(self.settings_tab, text="IMU Sensor Control")
-        self.imu_control_frame.grid(row=1, column=0, padx=10, pady=10)
+        self.imu_control_frame.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
 
         # Connect Sensors Button
         self.frame_rate_list= ttk.Combobox(self.imu_control_frame, state="normal", values=["60", "30", "20", "15", "12", "10", "4", "1"])
-        self.frame_rate_list.grid(row=1, column=0, columnspan=1)
+        self.frame_rate_list.grid(row=0, column=0, columnspan=1)
         self.frame_rate_list.current(0)
 
         self.connect_button = ttk.Button(self.imu_control_frame, text="Connect Sensors", command=self.conenct_IMU_sensors)
-        self.connect_button.grid(row=2, column=0, columnspan=2, pady=10)
+        self.connect_button.grid(row=1, column=0, columnspan=2, pady=10, sticky='nsew')
         
         self.discoconnect_button = ttk.Button(self.imu_control_frame, text="Disconnect Sensors", command=self.disconnect_IMU_sensors)
-        self.discoconnect_button.grid(row=3, column=0, columnspan=2, pady=10)
+        self.discoconnect_button.grid(row=2, column=0, columnspan=2, pady=10, sticky='nsew')
         
         self.sync_button = ttk.Button(self.imu_control_frame, text="Sync Sensors", command=self.sync_sensors)
-        self.sync_button.grid(row=4, column=0, columnspan=2, pady=10) 
+        self.sync_button.grid(row=3, column=0, columnspan=2, pady=10, sticky='nsew') 
 
         self.imu_configuration_frame = ttk.LabelFrame(self.settings_tab, text="IMU Sensors Configuration")
         self.imu_configuration_frame.grid(row=2, column=0, padx=10, pady=10)
@@ -207,23 +213,23 @@ class IMURecordingStudio(tk.Tk):
             self.imu_comboboxes.append(imu_combo)
 
         imu_lock_button = ttk.Button(self.imu_configuration_frame, text="Lock configuration", state="enabled", command=self.lock_imu_configuration)    
-        imu_lock_button.grid(row=imu+4, column=1, columnspan=1)
+        imu_lock_button.grid(row=imu+4, column=0, columnspan=1)
        
         imu_lock_button = ttk.Button(self.imu_configuration_frame, text="Unlock configuration", state="enabled", command=self.unlock_imu_configuration)    
-        imu_lock_button.grid(row=imu+4, column=2, columnspan=1)
+        imu_lock_button.grid(row=imu+4, column=1, columnspan=1)
 
         self.imu_status_frame = ttk.LabelFrame(self.settings_tab, text="IMU Sensors Status")
-        self.imu_status_frame.grid(row=2, column=2, padx=10, pady=10)
+        self.imu_status_frame.grid(row=2, column=2, padx=10, pady=10, sticky='nsew')
 
         self.camera_status_frame = ttk.LabelFrame(self.settings_tab, text="Camera Sensor Status")
-        self.camera_status_frame.grid(row=1, column=2, padx=10, pady=10)              
+        self.camera_status_frame.grid(row=0, column=2, padx=10, pady=10, sticky='nsew')              
 
         # Connect Cameras Button
         self.connect_camera_button = ttk.Button(self.camera_status_frame, text="Read Cameras", command=self.connect_webcams)
-        self.connect_camera_button.grid(row=0, column=0, columnspan=2, pady=10)
+        self.connect_camera_button.grid(row=0, column=0, columnspan=1, pady=10)
        
-        self.disconnect_camera_button = ttk.Button(self.camera_status_frame, text="Diconnect Cameras", command=self.disconnect_webcams)
-        self.disconnect_camera_button.grid(row=1, column=0, columnspan=2, pady=10)   
+        self.disconnect_camera_button = ttk.Button(self.camera_status_frame, text="Disconnect Cameras", command=self.disconnect_webcams)
+        self.disconnect_camera_button.grid(row=0, column=1, columnspan=1, pady=10)   
 
     def create_imu_status_lamp(self, frame, text, row, column, batteryLevel):
         label = ttk.Label(frame, text=text)
@@ -254,16 +260,21 @@ class IMURecordingStudio(tk.Tk):
 
     def create_visualization_tab(self):
         # Camera Views Frame
-        visualize_camera_frame = ttk.LabelFrame(self.visualization_tab, width=800, height=250, text="Camera Visualization")
-        visualize_camera_frame.grid(row=0, column=0, padx=10, pady=10, columnspan=1)
-        
+        visualize_camera_frame = ttk.LabelFrame(self.visualization_tab, text="Camera Visualization")
+        visualize_camera_frame.grid(row=0, column=0, padx=10, pady=10, rowspan=1, columnspan=4, sticky='nsew')
+        visualize_camera_frame.grid_rowconfigure(0, weight=1)
+        visualize_camera_frame.grid_columnconfigure(0, weight=1)
+        visualize_camera_frame.grid_columnconfigure(1, weight=1)
+        visualize_camera_frame.grid_columnconfigure(2, weight=1)   
+        visualize_camera_frame.grid_columnconfigure(3, weight=1) 
+
         # Camera 3 Visualization View (using Matplotlib as placeholder)
         self.fig3, self.ax3 = plt.subplots(figsize=(4, 3))
         self.ax3.set_title("Front View")
         self.ax3.axis('off')
         self.canvas3 = FigureCanvasTkAgg(self.fig3, master=visualize_camera_frame)
         self.canvas3.draw()
-        self.canvas3.get_tk_widget().grid(row=0, column=0)
+        self.canvas3.get_tk_widget().grid(row=0, column=0, columnspan=2, sticky='nsew')
         
         # Camera 4 Visualization View (using Matplotlib as placeholder)
         self.fig4, self.ax4 = plt.subplots(figsize=(4, 3))
@@ -271,48 +282,81 @@ class IMURecordingStudio(tk.Tk):
         self.ax4.axis('off')
         self.canvas4 = FigureCanvasTkAgg(self.fig4, master=visualize_camera_frame)
         self.canvas4.draw()
-        self.canvas4.get_tk_widget().grid(row=0, column=2)
-
+        self.canvas4.get_tk_widget().grid(row=0, column=2, columnspan=2, sticky='nsew')
+        
+        
         # IMU Data Views Frame
-        visualize_imus_frame = ttk.LabelFrame(self.visualization_tab, width=800, height=200, text="IMU Data Visualization")
-        visualize_imus_frame.grid(row=1, column=0, padx=10, pady=10, columnspan=1)
+        visualize_imus_frame = ttk.LabelFrame(self.visualization_tab, text="IMU Data Visualization")
+        visualize_imus_frame.grid(row=1, column=0, padx=10, pady=10, columnspan=4, sticky='nsew')
+        visualize_imus_frame.grid_rowconfigure(0, weight=1)
+        visualize_imus_frame.grid_columnconfigure(0, weight=1)
+        visualize_imus_frame.grid_columnconfigure(1, weight=1)
+        visualize_imus_frame.grid_columnconfigure(2, weight=1)
+        visualize_imus_frame.grid_columnconfigure(3, weight=1)
+
         self.fig5, self.ax5 = plt.subplots(figsize=(8, 2))
         self.ax5.set_title("Imu Data")
         self.ax5.axis('off')
         self.canvas5 = FigureCanvasTkAgg(self.fig5, master=visualize_imus_frame)
         self.canvas5.draw()
-        self.canvas5.get_tk_widget().grid(row=0, column=0)
+        self.canvas5.get_tk_widget().grid(row=0, column=0, columnspan=4, sticky='nsew')
 
-        # Create IMU data visualization checkboxes
-        select_data_frame = ttk.LabelFrame(self.visualization_tab, text="IMU Data Visualization")
-        select_data_frame.grid(row=2, column=1, padx=10, pady=10, columnspan=1)
-        select_data_frame.place(x=420, y=595)
+         # Pose Viewer
+        recorded_data_imu_vector_viewer_frame = ttk.LabelFrame(self.visualization_tab, text="Pose Viewer")   
+        recorded_data_imu_vector_viewer_frame.grid(row=2, column=0, columnspan=1, padx=10, pady=10, sticky='nsew') 
+        recorded_data_imu_vector_viewer_frame.grid_rowconfigure(0, weight=1)
+        recorded_data_imu_vector_viewer_frame.grid_columnconfigure(0, weight=1)
 
-        self.select_acceleration_tickbox = ttk.Checkbutton(select_data_frame, text="Acceleration")
-        self.select_acceleration_tickbox.grid(row=1, column=0, padx=10, pady=10, columnspan=1)
-        self.select_angular_velocity_tickbox = ttk.Checkbutton(select_data_frame, text="Angular Velocity")
-        self.select_angular_velocity_tickbox.grid(row=1, column=1, padx=10, pady=10, columnspan=1)
-        self.select_magnetic_filed_tickbox = ttk.Checkbutton(select_data_frame, text="Magnetic Field")
-        self.select_magnetic_filed_tickbox.grid(row=1, column=2, padx=10, pady=10, columnspan=1)
-    
-        #Drop down with available recordings
-        self.available_recording_combobox = ttk.Combobox(select_data_frame, state="disabled", values= 'None')
-        self.available_recording_combobox.grid(row=0, column=1, columnspan=1)
-        
-        load_recordings_button = ttk.Button(select_data_frame, text="Load Data", command=self.load_recordings)   
-        load_recordings_button.grid(row=0, column=0, padx=10, pady=10, columnspan=1)
-
-        # IMU Vector View
-        recorded_data_imu_vector_viewer_frame = ttk.LabelFrame(self.visualization_tab, width=400, height=200, text="IMU Vector View")   
-        recorded_data_imu_vector_viewer_frame.grid(row=2, column=0, padx=10, pady=10, columnspan=1) 
-        recorded_data_imu_vector_viewer_frame.place(x=10, y=595, width=390, height=250)
-        self.fig6 = plt.figure(figsize=(6, 4))
+        self.fig6 = plt.figure(figsize=(4, 3))
         self.ax6 = self.fig6.add_subplot(111, projection='3d')   
-        self.ax6.set_title("IMU Vector View")
+        self.ax6.set_title("Pose Viewer")
         self.ax6.axis('off')
         self.canvas6 = FigureCanvasTkAgg(self.fig6, master=recorded_data_imu_vector_viewer_frame)
         self.canvas6.draw()
-        self.canvas6.get_tk_widget().pack()
+        self.canvas6.get_tk_widget().grid(row=0, column=0, columnspan=1, sticky='nsew')
+
+        # Create data visualization checkboxes
+        select_data_frame = ttk.LabelFrame(self.visualization_tab, text="Data Control")
+        select_data_frame.grid(row=2, column=1, padx=10, pady=10, columnspan=3, sticky='nsew')
+        # select_data_frame.grid_rowconfigure(0, weight=1)
+        # select_data_frame.grid_rowconfigure(1, weight=0)
+        # select_data_frame.grid_columnconfigure(0, weight=0)
+        # select_data_frame.grid_columnconfigure(1, weight=1)
+        # select_data_frame.grid_columnconfigure(2, weight=1)
+        # select_data_frame.grid_columnconfigure(4, weight=1)
+
+        # Create the Scale bar for scrolling through frames
+        self.select_frame_scrollbar = tk.Scale(select_data_frame,from_=0, to=1 ,orient='horizontal', label="Frame Slider")
+        self.select_frame_scrollbar.grid(row=0, column=0, columnspan=4, padx=5, pady=10, sticky='nsew')
+        
+        # Create buttons to increase decrease frame
+        decrease_frame_button = ttk.Button(select_data_frame, text="-", width=2)
+        decrease_frame_button.grid(row=1, column=0, padx=10, pady=10, sticky='nse')
+        increase_frame_button = ttk.Button(select_data_frame, text="+", width=2)
+        increase_frame_button.grid(row=1, column=1, padx=0, pady=10, sticky='nsw')
+
+        self.acc_checkbox_var = tk.BooleanVar()
+        self.acc_checkbox_var.set(True)
+        self.ang_checkbox_var = tk.BooleanVar()
+        self.ang_checkbox_var.set(True)
+        self.mag_checkbox_var = tk.BooleanVar()
+        self.mag_checkbox_var.set(False)
+
+        self.select_acceleration_tickbox = ttk.Checkbutton(select_data_frame, text="Acceleration", onvalue=True, offvalue=False, variable=self.acc_checkbox_var)
+        self.select_acceleration_tickbox.grid(row=2, column=0, padx=10, pady=10, columnspan=1, sticky='nsew')
+        self.select_angular_velocity_tickbox = ttk.Checkbutton(select_data_frame, text="Angular Velocity", onvalue=True, offvalue=False, variable=self.ang_checkbox_var)
+        self.select_angular_velocity_tickbox.grid(row=2, column=1, padx=10, pady=10, columnspan=1, sticky='nsew')
+        self.select_magnetic_filed_tickbox = ttk.Checkbutton(select_data_frame, text="Magnetic Field", onvalue=True, offvalue=False, variable = self.mag_checkbox_var)
+        self.select_magnetic_filed_tickbox.grid(row=2, column=2, padx=10, pady=10, columnspan=1,sticky='nsew')
+
+        #Drop down with available recordings
+        self.available_recording_combobox = ttk.Combobox(select_data_frame, state="disabled", values= 'None')
+        self.available_recording_combobox.grid(row=3, column=1, columnspan=1, sticky='nsew')
+        
+        load_recordings_button = ttk.Button(select_data_frame, text="Load Data", command=self.load_recordings)   
+        load_recordings_button.grid(row=3, column=0, padx=10, pady=10, columnspan=1, sticky='nsew')
+
+       
 
 
     def connect_webcams(self):
@@ -327,9 +371,7 @@ class IMURecordingStudio(tk.Tk):
 
         # create the Labels and lamps for each camera
         for i in range(len(self.idxInitiatedCameras)):
-            self.create_camera_status_lamp(self.camera_status_frame, f"Camera {self.idxInitiatedCameras[i]}", i, 0)
-        self.connect_camera_button.grid(row=len(self.idxInitiatedCameras)+1, column=0, columnspan=2, pady=10)
-        self.disconnect_camera_button.grid(row=len(self.idxInitiatedCameras)+2, column=0, columnspan=2, pady=10)
+            self.create_camera_status_lamp(self.camera_status_frame, f"Camera {self.idxInitiatedCameras[i]}", i+1, 0)
         self.update_camera_view_list()
 
     def disconnect_webcams(self):
