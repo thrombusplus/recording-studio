@@ -72,6 +72,11 @@ class IMURecordingStudio(tk.Tk):
         # Create Main tab
         self.main_tab = ttk.Frame(self.tabControl)
         self.tabControl.add(self.main_tab, text='Main')
+        self.main_tab.rowconfigure(0, weight=2)
+        self.main_tab.rowconfigure(1, weight=1)
+        self.main_tab.rowconfigure(2, weight=2)
+        self.main_tab.columnconfigure(0, weight=1)
+        self.main_tab.columnconfigure(1, weight=1)
         
         # Create Settings tab
         self.settings_tab = ttk.Frame(self.tabControl)
@@ -87,28 +92,33 @@ class IMURecordingStudio(tk.Tk):
 
     def create_main_tab(self):
         # Camera Views Frame
-        camera_frame = ttk.LabelFrame(self.main_tab, width=500, height=250, text="Camera Views")
-        camera_frame.grid(row=0, column=0, padx=10, pady=10, columnspan=1)
+        camera_frame = ttk.LabelFrame(self.main_tab,  text="Camera Views")
+        camera_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
         
         # Camera Control Frame
         camera_control_frame = ttk.LabelFrame(self.main_tab, text="")
-        camera_control_frame.grid(row=1, column=0, padx=10, pady=10)
-        camera_control_frame.place(x=10, y=340, width=420, height=50) 
+        camera_control_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
+         
+
+         # IMU View and Controls Container 
+        imu_container = ttk.Frame(self.main_tab)
+        imu_container.grid(row=2, column=0, padx=10, pady=10, sticky="nsew")
 
         # IMU Vector View Frame
-        imu_frame = ttk.LabelFrame(self.main_tab, width=250, height=250, text="IMU Vector View")
-        imu_frame.grid(row=4, column=0, padx=10, pady=10)
-        imu_frame.place(x=10, y=400)
+        imu_frame = ttk.LabelFrame(imu_container, text="IMU Vector View")
+        imu_frame.grid(row=0, column=0, sticky="nsew")
 
-        # IMU Vector Control Frame
-        IMU_control_frame = ttk.LabelFrame(self.main_tab, text="")
-        IMU_control_frame.grid(row=1, column=0, padx=10, pady=10)
-        IMU_control_frame.place(x=10, y= 720, width=420, height=50) 
+        # IMU Vector Control Frame (κάτω από το plot)
+        IMU_control_frame = ttk.LabelFrame(imu_container)
+        IMU_control_frame.grid(row=1, column=0, pady=(5, 0), sticky="ew")
+
+        imu_container.rowconfigure(0, weight=1)
+        imu_container.columnconfigure(0, weight=1)
 
         # Functionality Buttons Frame
         functionality_frame = ttk.LabelFrame(self.main_tab, text="Functionality Buttons")
-        functionality_frame.grid(row=4, column=1, padx=10, pady=10)
-        functionality_frame.place(x=420, y=400, width=390, height=320)  
+        functionality_frame.grid(row=2, column=1, padx=10, pady=10, sticky="nsew")
+        
 
         # Create matplotlib figures for the camera views
         self.create_camera_views(camera_frame)
@@ -163,7 +173,7 @@ class IMURecordingStudio(tk.Tk):
         self.ax1.axis('off')
         self.canvas1 = FigureCanvasTkAgg(self.fig1, master=frame)
         self.canvas1.draw()
-        self.canvas1.get_tk_widget().grid(row=0, column=0)
+        self.canvas1.get_tk_widget().grid(row=0, column=0, sticky="nsew")
         
         # Camera 2 View (using Matplotlib as placeholder)
         self.fig2, self.ax2 = plt.subplots(figsize=(4, 3))
@@ -171,7 +181,12 @@ class IMURecordingStudio(tk.Tk):
         self.ax2.axis('off')
         self.canvas2 = FigureCanvasTkAgg(self.fig2, master=frame)
         self.canvas2.draw()
-        self.canvas2.get_tk_widget().grid(row=0, column=2)
+        self.canvas2.get_tk_widget().grid(row=0, column=2, sticky="nsew")
+
+        # Enable dynamic resizing
+        frame.columnconfigure(0, weight=1)
+        frame.columnconfigure(2, weight=1)
+        frame.rowconfigure(0, weight=1)
 
     def create_camera_control_buttons(self, frame):
        
@@ -200,7 +215,9 @@ class IMURecordingStudio(tk.Tk):
         self.ax.axis('off')
         self.canvas = FigureCanvasTkAgg(self.fig, master=frame)
         self.canvas.draw()
-        self.canvas.get_tk_widget().pack()
+        self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
+        frame.rowconfigure(0, weight=1)
+        frame.columnconfigure(0, weight=1)
 
     def create_imu_control_button(self, frame):
         start_stop_imu_button = ttk.Button(frame, text="Start/Stop streaming", command=self.start_stop_button_streaming_imu)
@@ -1054,6 +1071,7 @@ class IMURecordingStudio(tk.Tk):
 
 # Run the application
 if __name__ == "__main__":
+
     app = IMURecordingStudio()
     
     app.mainloop()
