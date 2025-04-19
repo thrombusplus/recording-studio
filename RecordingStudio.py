@@ -392,6 +392,7 @@ class IMURecordingStudio(tk.Tk):
 
     # Threads for handling camera 1 and camera 2
     def camera1_thread(self):
+        
         try:
             cam_idx = int(self.camera_list_1.get())
             camera_manager = self.InitiatedCameras[cam_idx]
@@ -417,6 +418,7 @@ class IMURecordingStudio(tk.Tk):
             time.sleep(0.03)
 
     def camera2_thread (self):
+
         try:
             cam_idx =int(self.camera_list_2.get())
             camera_manager = self.InitiatedCameras[cam_idx]
@@ -685,39 +687,11 @@ class IMURecordingStudio(tk.Tk):
             except Exception as e:
                 print(f"Error while clearing queue: {e}")
                 break
-            
-        #Reset IMU heading    
-        try:
-            self.imu.reset_heading()
-            print("IMU heading reset successfully.")
-        except Exception as e:
-            print(f"Error while resetting IMU heading: {e}")
 
-            
-        self.initiate_plot() #reset plot to initial position
-        print("Waiting for IMUs to stabilize after heading reset...")
-        time.sleep(4)
 
-        for _ in range(5):
-            try :
-                self.imu.get_measurments()
-                time.sleep(0.05)
-            except Exception as e:
-                print(f"Error after heading reset: {e}")
-
-        for i in range(5,-1,-1):
-            print(f"Recording starts in: {i}...")
-            time.sleep(1)
-        
-        self.start_imu_streaming()
-
-        #prepare flags and threads
-        self.use_queue = True
-        self.recording = True
-
-        
-        self.thread_flag[0] = True
-        self.thread[0] =  Thread(target=self.data_collection_thread)
+        if not self.imu_streaming:
+            print("Starting IMU measuring mode")
+            self.start_imu_streaming()
 
         self.thread_flag[1] = True
         self.thread[1]= Thread(target=self.camera1_thread)
@@ -728,10 +702,36 @@ class IMURecordingStudio(tk.Tk):
         self.thread_flag[3]= True
         self.thread[3] = Thread(target=self.update_imu_plot)
 
-        for i in range(4):
+        for i in [1,2,3]:
             self.thread[i].start()
             print(f"Thread{i} started.")
-        
+
+        for i in range(5,-1,-1):
+            print(f"Recording starts in: {i}...")
+
+            if i==3:
+                try:
+                    self.imu.reset_heading()
+                    print("IMU heading reset successfully during countdown.")
+                    time.sleep(2)
+                    self.initiate_plot() #reset plot to initial position
+                    self.imu.get_measurments()
+                    
+                except Exception as e:
+                    print(f"Error while resetting IMU heading: {e}")
+                
+            time.sleep(1)
+
+        #prepare flags and threads
+        self.use_queue = True
+        self.recording = True
+
+        #Start recording
+        self.thread_flag[0] = True
+        self.thread[0] = Thread(target=self.data_collection_thread)
+        self.thread[0].start()
+        print("Data collection started.")
+
 
         print("Recording Started")
 
@@ -822,10 +822,11 @@ class IMURecordingStudio(tk.Tk):
            self.imu.stop_measuring_mode()
 
            if self.thread[2] is not None:
-               self.thread[2].join()
+               self.thread[2].join(0)
+
                self.thread[2]= None
 
-               print("IMU sreaming stopped")
+               print("IMU streaming stopped")
                self.imu_streaming = False
         else:
             print("No IMUs are streaming at the moment")
