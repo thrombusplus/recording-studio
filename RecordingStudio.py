@@ -324,16 +324,19 @@ class IMURecordingStudio(tk.Tk):
         # select_data_frame.grid_columnconfigure(1, weight=1)
         # select_data_frame.grid_columnconfigure(2, weight=1)
         # select_data_frame.grid_columnconfigure(4, weight=1)
-
-        # Create the Scale bar for scrolling through frames
-        self.select_frame_scrollbar = tk.Scale(select_data_frame,from_=0, to=1 ,orient='horizontal', label="Frame Slider")
-        self.select_frame_scrollbar.grid(row=0, column=0, columnspan=4, padx=5, pady=10, sticky='nsew')
         
+        # Create the Scale bar for scrolling through frames
+        self.frame_nr_var = tk.IntVar()
+        self.frame_nr_var.set(0)
+        self.select_frame_scrollbar = tk.Scale(select_data_frame,from_=0, to=1 ,orient='horizontal', label="Frame Slider", variable=self.frame_nr_var)
+        self.select_frame_scrollbar.grid(row=0, column=0, columnspan=4, padx=20, pady=10, sticky='nswe')
+        
+
         # Create buttons to increase decrease frame
-        decrease_frame_button = ttk.Button(select_data_frame, text="-", width=2)
-        decrease_frame_button.grid(row=1, column=0, padx=10, pady=10, sticky='nse')
-        increase_frame_button = ttk.Button(select_data_frame, text="+", width=2)
-        increase_frame_button.grid(row=1, column=1, padx=0, pady=10, sticky='nsw')
+        decrease_frame_button = ttk.Button(select_data_frame, text="◀", width=2, command=self.decrease_frame_nr_button)
+        decrease_frame_button.grid(row=0, column=0, padx=0, pady=10, sticky='sw')
+        increase_frame_button = ttk.Button(select_data_frame, text="▶", width=2, command=self.increase_frame_nr_button)
+        increase_frame_button.grid(row=0, column=3, padx=5, pady=10, sticky='se')
 
         self.acc_checkbox_var = tk.BooleanVar()
         self.acc_checkbox_var.set(True)
@@ -769,6 +772,21 @@ class IMURecordingStudio(tk.Tk):
         self.selected_data_dir = FileManager(path)
         
         print(self.selected_data_dir.get_subfodlers())
+
+
+
+    # Methods for the Visualiation tab
+    def decrease_frame_nr_button(self):
+        if self.frame_nr_var.get() > 0:
+            self.frame_nr_var.set(self.frame_nr_var.get()-1)
+        else:
+            print("Frame number is already at the minimum value")
+
+    def increase_frame_nr_button(self):
+        if self.frame_nr_var.get() < self.select_frame_scrollbar['to']:
+            self.frame_nr_var.set(self.frame_nr_var.get()+1)
+        else:
+            print("Frame number is already at the maximum value")    
 
 
 # Run the application
