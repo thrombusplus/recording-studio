@@ -301,7 +301,7 @@ class IMURecordingStudio(tk.Tk):
         self.canvas5.draw()
         self.canvas5.get_tk_widget().grid(row=0, column=0, columnspan=4, sticky='nsew')
 
-         # Pose Viewer
+        # Pose Viewer
         recorded_data_imu_vector_viewer_frame = ttk.LabelFrame(self.visualization_tab, text="Pose Viewer")   
         recorded_data_imu_vector_viewer_frame.grid(row=2, column=0, columnspan=1, padx=10, pady=10, sticky='nsew') 
         recorded_data_imu_vector_viewer_frame.grid_rowconfigure(0, weight=1)
@@ -352,12 +352,31 @@ class IMURecordingStudio(tk.Tk):
         self.select_magnetic_filed_tickbox = ttk.Checkbutton(select_data_frame, text="Magnetic Field", onvalue=True, offvalue=False, variable = self.mag_checkbox_var)
         self.select_magnetic_filed_tickbox.grid(row=2, column=2, padx=10, pady=10, columnspan=1,sticky='nsew')
 
+        plot_leg_segment_label= ttk.Label(select_data_frame, text="Plot Leg Segment:")
+        plot_leg_segment_label.grid(row=3, column=0, padx=10, pady=10, columnspan=1, sticky='nsew')    
+        self.left_thigh_checkbox_var = tk.BooleanVar()
+        self.left_thigh_checkbox_var.set(True)
+        self.left_calf_checkbox_var = tk.BooleanVar()
+        self.left_calf_checkbox_var.set(True)
+        self.left_foot_checkbox_var = tk.BooleanVar()
+        self.left_foot_checkbox_var.set(True)
+        self.right_thigh_checkbox_var = tk.BooleanVar()
+        self.right_thigh_checkbox_var.set(True)
+        self.right_calf_checkbox_var = tk.BooleanVar()
+        self.right_calf_checkbox_var.set(True)
+        self.right_foot_checkbox_var = tk.BooleanVar()
+        self.right_foot_checkbox_var.set(True)
+        
+        self.select_left_thigh_tickbox = ttk.Checkbutton(plot_leg_segment_label, text="Left Thigh", onvalue=True, offvalue=False, variable=self.left_thigh_checkbox_var)
+        self.select_left_thigh_tickbox.grid(row=4, column=0, padx=10, pady=10, columnspan=1, sticky='nsew')
+        #... add the rest buttons
+        
         #Drop down with available recordings
         self.available_recording_combobox = ttk.Combobox(select_data_frame, state="disabled", values= 'None')
-        self.available_recording_combobox.grid(row=3, column=1, columnspan=1, sticky='nsew')
+        self.available_recording_combobox.grid(row=5, column=1, columnspan=1, sticky='new')
         
         load_recordings_button = ttk.Button(select_data_frame, text="Load Data", command=self.load_recordings)   
-        load_recordings_button.grid(row=3, column=0, padx=10, pady=10, columnspan=1, sticky='nsew')
+        load_recordings_button.grid(row=5, column=0, padx=10, columnspan=1, sticky='new')
 
        
 
@@ -766,15 +785,6 @@ class IMURecordingStudio(tk.Tk):
         # self.imu.reset_heading()  
         self.reset_heading_flag = True
 
-
-    def load_recordings(self):
-        path = filedialog.askdirectory()
-        self.selected_data_dir = FileManager(path)
-        
-        print(self.selected_data_dir.get_subfodlers())
-
-
-
     # Methods for the Visualiation tab
     def decrease_frame_nr_button(self):
         if self.frame_nr_var.get() > 0:
@@ -787,6 +797,14 @@ class IMURecordingStudio(tk.Tk):
             self.frame_nr_var.set(self.frame_nr_var.get()+1)
         else:
             print("Frame number is already at the maximum value")    
+
+    def load_recordings(self):
+        path = filedialog.askdirectory()
+        self.selected_data_dir = FileManager(path)
+        self.available_recording_combobox['values'] = self.selected_data_dir.get_subfodlers()
+        self.available_recording_combobox['state'] = 'readonly'
+        self.available_recording_combobox.current(0)
+        print(self.selected_data_dir.get_subfodlers())
 
 
 # Run the application
