@@ -447,8 +447,7 @@ class IMURecordingStudio(tk.Tk):
         self.select_magnetic_filed_tickbox = ttk.Checkbutton(select_data_frame, text="Magnetic Field", onvalue=True, offvalue=False, variable = self.mag_checkbox_var)
         self.select_magnetic_filed_tickbox.grid(row=2, column=2, padx=10, pady=10, columnspan=1,sticky='nsew')
 
-        plot_leg_segment_label= ttk.Label(select_data_frame, text="Plot Leg Segment:")
-        plot_leg_segment_label.grid(row=3, column=0, padx=10, pady=10, columnspan=1, sticky='nsew')    
+        ttk.Label(select_data_frame, text="Plot Leg Segment:").grid(row=3, column=0, padx=10, pady=10, columnspan=1, sticky='nsew')    
         self.left_thigh_checkbox_var = tk.BooleanVar()
         self.left_thigh_checkbox_var.set(True)
         self.left_calf_checkbox_var = tk.BooleanVar()
@@ -462,8 +461,8 @@ class IMURecordingStudio(tk.Tk):
         self.right_foot_checkbox_var = tk.BooleanVar()
         self.right_foot_checkbox_var.set(True)
         
-        self.select_left_thigh_tickbox = ttk.Checkbutton(plot_leg_segment_label, text="Left Thigh", onvalue=True, offvalue=False, variable=self.left_thigh_checkbox_var)
-        self.select_left_thigh_tickbox.grid(row=4, column=0, padx=10, pady=10, columnspan=1, sticky='nsew')
+        self.select_left_thigh_tickbox = ttk.Checkbutton(select_data_frame, text="Left Thigh", onvalue=True, offvalue=False, variable=self.left_thigh_checkbox_var)
+        self.select_left_thigh_tickbox.grid(row=4, column=0, padx=10, pady=10, columnspan=1, sticky='new')
         #... add the rest buttons
         
         #Drop down with available recordings
@@ -538,6 +537,7 @@ class IMURecordingStudio(tk.Tk):
         try:
             cam_idx = int(self.camera_list_1.get())
             camera_manager = self.InitiatedCameras[cam_idx]
+            camera_manager.streaming = True
         except Exception as e:
             print(f"[Camera 1 Thread] Could not initialize camera:{e}")
             return
@@ -548,7 +548,6 @@ class IMURecordingStudio(tk.Tk):
             try:
                 frame_1 = camera_manager.get_frame()
                 self.latest_frame_cam1 = frame_1
-                
                 #Check if camera is already on recording mode
                 if self.recording:
                     pass
@@ -557,13 +556,14 @@ class IMURecordingStudio(tk.Tk):
                 print (f"[Camera Thread] Error: {e}")
                 self.latest_frame_cam1 = None
 
-            time.sleep(0.03)
+        camera_manager.streaming = False
 
     def camera2_thread (self):
 
         try:
             cam_idx =int(self.camera_list_2.get())
             camera_manager = self.InitiatedCameras[cam_idx]
+            camera_manager.streaming = True
         except Exception as e:
             print(f"[Camera 2 Thread] Could not initialize camera: {e}")
             return
@@ -583,7 +583,7 @@ class IMURecordingStudio(tk.Tk):
                 print(f"[Camera2 Thread] Error: {e}") 
                 self.latest_frame_cam2 = None  
 
-            time.sleep(0.03)   
+        camera_manager.streaming = False
 
 
     def stream_webcam(self): # No very elegant, maybe can be converted to a for loop
@@ -683,11 +683,11 @@ class IMURecordingStudio(tk.Tk):
            self.camera_list_2['state'] = 'readonly'
            print("Streaming stopped.")
         else:
-           self.stream_webcam()
            self.InitiatedCameras[cam1].streaming = True
            self.InitiatedCameras[cam2].streaming = True
            self.camera_list_1['state'] = 'disabled'
            self.camera_list_2['state'] = 'disabled'
+           self.stream_webcam()
            print("Streaming started.")
         
         
@@ -787,7 +787,7 @@ class IMURecordingStudio(tk.Tk):
         for i in [0,1]:
             self.thread_flag[i] = False
             if self.thread[i] is not None:
-               self.thread[i].join()
+               self.thread[i].join(0)
                self.thread[i] = None
                print(f"Thread {i} stopped.")
 
@@ -798,10 +798,10 @@ class IMURecordingStudio(tk.Tk):
             cam.streaming=False
 
     def stop_threads(self):
-        for i in range(4):
+        for i in range(5):
             self.thread_flag[i] = False
             if self.thread[i] is not None:
-               self.thread[i].join()
+               self.thread[i].join(0)
                self.thread[i] = None
                print(f"Thread {i} stopped.")
 
@@ -844,9 +844,12 @@ class IMURecordingStudio(tk.Tk):
         self.thread_flag[3]= True
         self.thread[3] = Thread(target=self.update_imu_plot)
 
-        for i in [1,2,3]:
+        self.thread_flag[4]= True
+        self.thread[4] = Thread(target=self.update_camera_figures)
+
+        for i in [1,2,3,4]:
             self.thread[i].start()
-            print(f"Thread{i} started.")
+            print(f"Thread {i} started.")
 
         for i in range(5,-1,-1):
             print(f"Recording starts in: {i}...")
@@ -884,6 +887,8 @@ class IMURecordingStudio(tk.Tk):
             return
         
         self.recording = False
+        for camera in self.InitiatedCameras:
+            camera.streaming = False
         self.stop_threads()
         
         print("Recording stopped")
@@ -939,7 +944,26 @@ class IMURecordingStudio(tk.Tk):
 
             time.sleep(0.050)
 
-    
+    def update_camera_figures(self): # Method used in recording mode.
+        while self.thread_flag[4]:
+            try:
+                if self.latest_frame_cam1 is not None:
+                    self.ax1.clear()
+                    self.ax1.imshow(self.latest_frame_cam1)
+                    self.ax1.axis('off')
+                    self.canvas1.draw()
+                    print("Camera 1 updated")
+                if self.latest_frame_cam2 is not None:
+                    self.ax2.clear()
+                    self.ax2.imshow(self.latest_frame_cam2)
+                    self.ax2.axis('off')
+                    self.canvas2.draw()
+                    print("Camera 2 updated")
+                # time.sleep(0.01)
+            except Exception as e:
+                print(f"[Thread 4] Error during figure update: {e}")
+                
+
     """def update_all_figures(self):
         while self.thread_flag[3]:
            
@@ -1065,7 +1089,7 @@ class IMURecordingStudio(tk.Tk):
                 self.imu.reset_heading()
                 self.reset_heading_flag = False
 
-            time.sleep(0.05)
+            # time.sleep(0.05)
 
         except Exception as e:
             print(f"[IMU plot] Error: {e}")
