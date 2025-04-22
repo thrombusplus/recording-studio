@@ -64,12 +64,12 @@ class IMURecordingStudio(tk.Tk):
         
        
         self.title("IMU Recording Studio")
-        self.geometry("850x800")
+        self.geometry("850x900")
         
-        # Create Tab control
+        # Initate a Tab control
         self.tabControl = ttk.Notebook(self)
         
-        # Create Main tab
+        # Initiate Main tab
         self.main_tab = ttk.Frame(self.tabControl)
         self.tabControl.add(self.main_tab, text='Main')
         self.main_tab.rowconfigure(0, weight=2)
@@ -78,17 +78,24 @@ class IMURecordingStudio(tk.Tk):
         self.main_tab.columnconfigure(0, weight=1)
         self.main_tab.columnconfigure(1, weight=1)
         
-        # Create Settings tab
+        # Initiate Settings tab
         self.settings_tab = ttk.Frame(self.tabControl)
         self.tabControl.add(self.settings_tab, text='Settings')
+
+        # Initiate the Visialization tab
+        self.visualization_tab = ttk.Frame(self.tabControl)
+        self.tabControl.add(self.visualization_tab, text='Visualuzation')
         
-        self.tabControl.pack(expand=1, fill='both')
+        self.tabControl.pack(expand=1, fill="both")
         
         # Setup the main tab (IMU Vector and Camera Views)
         self.create_main_tab()
         
         # Setup the settings tab (IMU Sensor Status)
         self.create_settings_tab()
+
+        # Setup the Record Visualization tab
+        self.create_visualization_tab()
 
     def create_main_tab(self):
         # Camera Views Frame
@@ -126,6 +133,7 @@ class IMURecordingStudio(tk.Tk):
         self.create_imu_vector_view(imu_frame)
         # Create camera views control buttons
         self.create_camera_control_buttons(camera_control_frame)
+
         # Crearte the imu control buttons
         self.create_imu_control_button(IMU_control_frame)
         # Create the main frunctionality buttons
@@ -222,10 +230,13 @@ class IMURecordingStudio(tk.Tk):
     def create_imu_control_button(self, frame):
         start_stop_imu_button = ttk.Button(frame, text="Start/Stop streaming", command=self.start_stop_button_streaming_imu)
         start_stop_imu_button.grid(row=0, column=1, columnspan=1)
-        # start_stop_imu_button.place(x=150)
 
         imu_reset_heading_button =ttk.Button(frame, text="Reset Heading", command=self.reset_heading)
-        imu_reset_heading_button.grid(row=0,column=0, columnspan=1 )
+        imu_reset_heading_button.grid(row=0,column=0, columnspan=1)
+
+        self.imu_pose_selection=ttk.Combobox(frame, state="readonly", values = ["Sitting","Laying"])
+        self.imu_pose_selection.set("Sitting")
+        self.imu_pose_selection.grid(row=0,column=3, columnspan=1 )
 
         self.imu_pose_selection=ttk.Combobox(frame, state="readonly", values = ["Sitting","Laying"])
         self.imu_pose_selection.set("Sitting")
@@ -265,9 +276,6 @@ class IMURecordingStudio(tk.Tk):
             imu_combo.grid(row=imu+3, column=1, columnspan=1)
             imu_combo.current(0)
             self.imu_comboboxes.append(imu_combo)
-        
-        # imu_reset_heading_button =ttk.Button(self.imu_configuration_frame, text="Reset Heading", command=self.reset_heading)
-        # imu_reset_heading_button.grid(row=imu+4,column=0, columnspan=1 )
 
         imu_lock_button = ttk.Button(self.imu_configuration_frame, text="Lock configuration", state="enabled", command=self.lock_imu_configuration)    
         imu_lock_button.grid(row=imu+4, column=1, columnspan=1)
@@ -286,15 +294,7 @@ class IMURecordingStudio(tk.Tk):
         self.connect_camera_button.grid(row=0, column=0, columnspan=2, pady=10)
        
         self.disconnect_camera_button = ttk.Button(self.camera_status_frame, text="Diconnect Cameras", command=self.disconnect_webcams)
-        self.disconnect_camera_button.grid(row=1, column=0, columnspan=2, pady=10)
-
-        # # Log Label
-        # log_label = ttk.Label(self.camera_status_frame, text="Log:")
-        # log_label.grid(row=4, column=0, sticky='w')
-
-        # # Log text placeholder
-        # log_placeholder = ttk.Label(self.camera_status_frame, text="", relief="sunken")
-        # log_placeholder.grid(row=5, column=0, columnspan=2, padx=10, pady=10, sticky='ew')     
+        self.disconnect_camera_button.grid(row=1, column=0, columnspan=2, pady=10)   
 
     def create_imu_status_lamp(self, frame, text, row, column, batteryLevel):
         label = ttk.Label(frame, text=text)
@@ -345,6 +345,69 @@ class IMURecordingStudio(tk.Tk):
                     print(f'This patient ID already exists. Error: {e}')
         return True
 
+    def create_visualization_tab(self):
+        # Camera Views Frame
+        visualize_camera_frame = ttk.LabelFrame(self.visualization_tab, width=800, height=250, text="Camera Visualization")
+        visualize_camera_frame.grid(row=0, column=0, padx=10, pady=10, columnspan=1)
+        
+        # Camera 3 Visualization View (using Matplotlib as placeholder)
+        self.fig3, self.ax3 = plt.subplots(figsize=(4, 3))
+        self.ax3.set_title("Front View")
+        self.ax3.axis('off')
+        self.canvas3 = FigureCanvasTkAgg(self.fig3, master=visualize_camera_frame)
+        self.canvas3.draw()
+        self.canvas3.get_tk_widget().grid(row=0, column=0)
+        
+        # Camera 4 Visualization View (using Matplotlib as placeholder)
+        self.fig4, self.ax4 = plt.subplots(figsize=(4, 3))
+        self.ax4.set_title("Side View")
+        self.ax4.axis('off')
+        self.canvas4 = FigureCanvasTkAgg(self.fig4, master=visualize_camera_frame)
+        self.canvas4.draw()
+        self.canvas4.get_tk_widget().grid(row=0, column=2)
+
+        # IMU Data Views Frame
+        visualize_imus_frame = ttk.LabelFrame(self.visualization_tab, width=800, height=200, text="IMU Data Visualization")
+        visualize_imus_frame.grid(row=1, column=0, padx=10, pady=10, columnspan=1)
+        self.fig5, self.ax5 = plt.subplots(figsize=(8, 2))
+        self.ax5.set_title("Imu Data")
+        self.ax5.axis('off')
+        self.canvas5 = FigureCanvasTkAgg(self.fig5, master=visualize_imus_frame)
+        self.canvas5.draw()
+        self.canvas5.get_tk_widget().grid(row=0, column=0)
+
+        # Create IMU data visualization checkboxes
+        select_data_frame = ttk.LabelFrame(self.visualization_tab, text="IMU Data Visualization")
+        select_data_frame.grid(row=2, column=1, padx=10, pady=10, columnspan=1)
+        select_data_frame.place(x=420, y=595)
+
+        self.select_acceleration_tickbox = ttk.Checkbutton(select_data_frame, text="Acceleration")
+        self.select_acceleration_tickbox.grid(row=1, column=0, padx=10, pady=10, columnspan=1)
+        self.select_angular_velocity_tickbox = ttk.Checkbutton(select_data_frame, text="Angular Velocity")
+        self.select_angular_velocity_tickbox.grid(row=1, column=1, padx=10, pady=10, columnspan=1)
+        self.select_magnetic_filed_tickbox = ttk.Checkbutton(select_data_frame, text="Magnetic Field")
+        self.select_magnetic_filed_tickbox.grid(row=1, column=2, padx=10, pady=10, columnspan=1)
+    
+        #Drop down with available recordings
+        self.available_recording_combobox = ttk.Combobox(select_data_frame, state="disabled", values= 'None')
+        self.available_recording_combobox.grid(row=0, column=1, columnspan=1)
+        
+        load_recordings_button = ttk.Button(select_data_frame, text="Load Data", command=self.load_recordings)   
+        load_recordings_button.grid(row=0, column=0, padx=10, pady=10, columnspan=1)
+
+        # IMU Vector View
+        recorded_data_imu_vector_viewer_frame = ttk.LabelFrame(self.visualization_tab, width=400, height=200, text="IMU Vector View")   
+        recorded_data_imu_vector_viewer_frame.grid(row=2, column=0, padx=10, pady=10, columnspan=1) 
+        recorded_data_imu_vector_viewer_frame.place(x=10, y=595, width=390, height=250)
+        self.fig6 = plt.figure(figsize=(6, 4))
+        self.ax6 = self.fig6.add_subplot(111, projection='3d')   
+        self.ax6.set_title("IMU Vector View")
+        self.ax6.axis('off')
+        self.canvas6 = FigureCanvasTkAgg(self.fig6, master=recorded_data_imu_vector_viewer_frame)
+        self.canvas6.draw()
+        self.canvas6.get_tk_widget().pack()
+
+
 
     def connect_webcams(self):
         # set camera_lamps to OFF - in case of reconnection
@@ -373,7 +436,6 @@ class IMURecordingStudio(tk.Tk):
         for labels in self.camera_labels:
             labels.destroy()
             
-
         self.camera_list_1['values'] = self.idxInitiatedCameras
         self.camera_list_1['state'] = 'disabled'
         self.camera_list_2['values'] = self.idxInitiatedCameras
@@ -902,6 +964,7 @@ class IMURecordingStudio(tk.Tk):
     def update_imu_plot(self):
       self.new_joints = copy.deepcopy(self.joints)
 
+
       while True:
         # Βρες το index του thread που τρέχει αυτή τη στιγμή
         current_thread_index = 3 if self.recording else 2
@@ -979,95 +1042,103 @@ class IMURecordingStudio(tk.Tk):
             self.joints = DEFAULT_SETTINGS.skeleton_pose_laying_joints()
         DEFAULT_SETTINGS.plot_body_parts(self.ax, self.joints)
         self.canvas.draw() 
-        
+     
     def rotate_leg_segment(self, legSegment, rotationMatrix):
-      #Function to move the entire chain of joints by a displacement 
-      def move_chain(joint_names, displacement):
-        #   for joint in joint_names:
-        self.new_joints[joint_names] += displacement   #update the position of each joint 
-
-      # Left leg segments
-      # Left Thight rotation
-      if legSegment == 'Left Thigh':
-         temp_knee = copy.deepcopy(self.new_joints['Left Knee'])  # Store the current position 
-         start = self.joints['Left Hip']  #start point is the left hip
-         stop = self.joints['Left Knee'] - start  #direction from hip to knee
-         norm = stop / np.linalg.norm(stop)  # Normalize the direction vector
-         rotated = np.dot(rotationMatrix, norm)  # Apply the rotation matrix
-         
-         if not np.isnan(rotated).any(): 
-           self.new_joints['Left Knee'] = rotated * np.linalg.norm(stop) + start  # scale the rotated vetcor to the original length
-           displacement = self.new_joints['Left Knee'] - temp_knee  #update new knee position
-           if self.imu_comboboxes[1].get() == "None":
-             move_chain('Left Ankle', displacement)
-           if self.imu_comboboxes[2].get() == "None":
-             move_chain('Left Toes', displacement)  
-
-      # Rotate the left calf segment 
-      elif legSegment == 'Left Calf':
-        temp_ankle = copy.deepcopy(self.new_joints['Left Ankle'])
-        start = self.joints['Left Knee'] 
-        stop = self.joints['Left Ankle'] - start # direction from knee to ankle
-        norm = stop / np.linalg.norm(stop)
-        rotated = np.dot(rotationMatrix, norm)
-
-        if not np.isnan(rotated).any():
-            self.new_joints['Left Ankle'] = rotated * np.linalg.norm(stop) + self.new_joints['Left Knee']
-            displacement = self.new_joints['Left Ankle'] - temp_ankle 
-            if self.imu_comboboxes[2].get() == "None":
-             move_chain('Left Toes', displacement) 
-
-      # Rotate the left foot segment
-      elif legSegment == 'Left Foot':
-        start = self.joints['Left Ankle']
-        stop = self.joints['Left Toes'] - start
-        norm = stop / np.linalg.norm(stop)
-        rotated = np.dot(rotationMatrix, norm)
-        if not np.isnan(rotated).any():
-            self.new_joints['Left Toes'] = rotated * np.linalg.norm(stop) + self.new_joints['Left Ankle']            
-      
-      # Right leg segments rotation
-      # Right Thight rotation
-      if legSegment == 'Right Thigh':
-         temp_knee = copy.deepcopy(self.new_joints['Right Knee'])  # Store the current position 
-         start = self.joints['Right Hip']  #start point is the left hip
-         stop = self.joints['Right Knee'] - start  #direction from hip to knee
-         norm = stop / np.linalg.norm(stop)  # Normalize the direction vector
-         rotated = np.dot(rotationMatrix, norm)  # Apply the rotation matrix
-         
-         if not np.isnan(rotated).any(): 
-           self.new_joints['Right Knee'] = rotated * np.linalg.norm(stop) + start  # scale the rotated vetcor to the original length
-           displacement = self.new_joints['Right Knee'] - temp_knee  #update new knee position
-           if self.imu_comboboxes[4].get() == "None":
-             move_chain('Right Ankle', displacement)
-           if self.imu_comboboxes[5].get() == "None":
-             move_chain('Right Toes', displacement) 
-
-      # Rotate the left calf segment 
-      elif legSegment == 'Right Calf':
-        temp_ankle = copy.deepcopy(self.new_joints['Right Ankle'])
-        start = self.joints['Right Knee'] 
-        stop = self.joints['Right Ankle'] - start # direction from knee to ankle
-        norm = stop / np.linalg.norm(stop)
-        rotated = np.dot(rotationMatrix, norm)
-        if not np.isnan(rotated).any():
-            self.new_joints['Right Ankle'] = rotated * np.linalg.norm(stop) + self.new_joints['Right Knee']
-            displacement = self.new_joints['Right Ankle'] - temp_ankle 
-            if self.imu_comboboxes[5].get() == "None":
-             move_chain('Right Toes', displacement) 
+          
+        #Function to move the entire chain of joints by a displacement 
+        def move_chain(joint, displacement):
+            #   for joint in joint_names:
+            self.new_joints[joint] += displacement   #update the position of each joint 
         
-      # Rotate the left foot segment
-      elif legSegment == 'Right Foot':
-        start = self.joints['Right Ankle']
-        stop = self.joints['Right Toes'] - start
-        norm = stop / np.linalg.norm(stop)
-        rotated = np.dot(rotationMatrix, norm)
-        if not np.isnan(rotated).any():
-            self.new_joints['Right Toes'] = rotated * np.linalg.norm(stop) + self.new_joints['Right Ankle']
+    # Left leg segments
+    # Left Thight rotation
+        if legSegment == 'Left Thigh':
+            temp_knee = copy.deepcopy(self.new_joints['Left Knee'])  # Store the current position 
+            start = self.joints['Left Hip']  #start point is the left hip
+            stop = self.joints['Left Knee'] - start  #direction from hip to knee
+            norm = stop / np.linalg.norm(stop)  # Normalize the direction vector
+            rotated = np.dot(rotationMatrix, norm)  # Apply the rotation matrix
+            temp_ankle = copy.deepcopy(self.new_joints['Left Ankle'])  # Store the current position
+            if not np.isnan(rotated).any(): 
+                self.new_joints['Left Knee'] = rotated * np.linalg.norm(stop) + start  # scale the rotated vetcor to the original length
+                displacement = self.new_joints['Left Knee'] - temp_knee  #update new knee position
+                if self.imu_comboboxes[1].get() == "None":
+                    move_chain('Left Ankle', displacement)
+                if self.imu_comboboxes[2].get() == "None":
+                    displacement = self.new_joints['Left Ankle'] - temp_ankle  #update new ankle position
+                    move_chain('Left Toes', displacement)  
 
+        # Rotate the left calf segment 
+        elif legSegment == 'Left Calf':
+            temp_ankle = copy.deepcopy(self.new_joints['Left Ankle'])
+            start = self.joints['Left Knee'] 
+            stop = self.joints['Left Ankle'] - start # direction from knee to ankle
+            norm = stop / np.linalg.norm(stop)
+            rotated = np.dot(rotationMatrix, norm)
+            
+            if not np.isnan(rotated).any():
+                self.new_joints['Left Ankle'] = rotated * np.linalg.norm(stop) + self.new_joints['Left Knee']
+                displacement = self.new_joints['Left Ankle'] - temp_ankle 
+                if self.imu_comboboxes[2].get() == "None":
+                    move_chain('Left Toes', displacement) 
+
+        # Rotate the left foot segment
+        elif legSegment == 'Left Foot':
+            start = self.joints['Left Ankle']
+            stop = self.joints['Left Toes'] - start
+            norm = stop / np.linalg.norm(stop)
+            rotated = np.dot(rotationMatrix, norm)
+            if not np.isnan(rotated).any():
+                self.new_joints['Left Toes'] = rotated * np.linalg.norm(stop) + self.new_joints['Left Ankle']            
+      
+        # Right leg segments rotation
+        # Right Thight rotation
+        if legSegment == 'Right Thigh':
+            temp_knee = copy.deepcopy(self.new_joints['Right Knee'])  # Store the current position 
+            start = self.joints['Right Hip']  #start point is the left hip
+            stop = self.joints['Right Knee'] - start  #direction from hip to knee
+            norm = stop / np.linalg.norm(stop)  # Normalize the direction vector
+            rotated = np.dot(rotationMatrix, norm)  # Apply the rotation matrix
+            if not np.isnan(rotated).any(): 
+                self.new_joints['Right Knee'] = rotated * np.linalg.norm(stop) + start  # scale the rotated vetcor to the original length
+                displacement = self.new_joints['Right Knee'] - temp_knee  #update new knee position
+                if self.imu_comboboxes[4].get() == "None":
+                    move_chain('Right Ankle', displacement)
+                if self.imu_comboboxes[5].get() == "None":
+                    move_chain('Right Toes', displacement) 
+
+        # Rotate the left calf segment 
+        elif legSegment == 'Right Calf':
+            temp_ankle = copy.deepcopy(self.new_joints['Right Ankle'])
+            start = self.joints['Right Knee'] 
+            stop = self.joints['Right Ankle'] - start # direction from knee to ankle
+            norm = stop / np.linalg.norm(stop)
+            rotated = np.dot(rotationMatrix, norm)
+            if not np.isnan(rotated).any():
+                self.new_joints['Right Ankle'] = rotated * np.linalg.norm(stop) + self.new_joints['Right Knee']
+                displacement = self.new_joints['Right Ankle'] - temp_ankle 
+                if self.imu_comboboxes[5].get() == "None":
+                    move_chain('Right Toes', displacement) 
+        
+        # Rotate the left foot segment
+        elif legSegment == 'Right Foot':
+            start = self.joints['Right Ankle']
+            stop = self.joints['Right Toes'] - start
+            norm = stop / np.linalg.norm(stop)
+            rotated = np.dot(rotationMatrix, norm)
+            if not np.isnan(rotated).any():
+                self.new_joints['Right Toes'] = rotated * np.linalg.norm(stop) + self.new_joints['Right Ankle']
+        
     def reset_heading(self):
         # self.imu.reset_heading()  
         self.reset_heading_flag = True
+
+    def load_recordings(self):
+        path = filedialog.askdirectory()
+        self.selected_data_dir = FileManager(path)
+        
+        print(self.selected_data_dir.get_subfodlers())
+
 
 # Run the application
 if __name__ == "__main__":
