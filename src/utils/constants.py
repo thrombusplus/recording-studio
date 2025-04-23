@@ -15,21 +15,21 @@ class DEFAULT_SETTINGS:
         joints = {
             'Head': np.array([0, 0, 3]),
             'Neck': np.array([0, 0, 2]),
-            'Left Shoulder': np.array([0, -0.5, 2]),
-            'Right Shoulder': np.array([0, 0.5, 2]),
-            'Left Elbow' : np.array([0, -0.8, 1]),
-            'Right Elbow' : np.array([0, 0.8, 1]),
-            'Left Wrist' : np.array([0, -1, 0]),
-            'Right Wrist' : np.array([0, 1, 0]),
+            'Right Shoulder': np.array([0, -0.5, 2]),
+            'Left Shoulder': np.array([0, 0.5, 2]),
+            'Right Elbow' : np.array([0, -0.8, 1]),
+            'Left Elbow' : np.array([0, 0.8, 1]),
+            'Right Wrist' : np.array([0, -1, 0]),
+            'Left Wrist' : np.array([0, 1, 0]),
             'Hip': np.array([0, 0, 0]),
-            'Left Hip': np.array([0, -0.5, 0]),
-            'Right Hip': np.array([0, 0.5, 0]),
-            'Left Knee': np.array([1.5, -0.5, 0]),
-            'Right Knee': np.array([1.5, 0.5, 0]),
-            'Left Ankle': np.array([1.5, -0.5, -1.5]),
-            'Right Ankle': np.array([1.5, 0.5, -1.5]),
-            'Left Toes': np.array([1.7, -0.5, -1.5]),
-            'Right Toes': np.array([1.7, 0.5, -1.5])
+            'Right Hip': np.array([0, -0.5, 0]),
+            'Left Hip': np.array([0, 0.5, 0]),
+            'Right Knee': np.array([1.5, -0.5, 0]),
+            'Left Knee': np.array([1.5, 0.5, 0]),
+            'Right Ankle': np.array([1.5, -0.5, -1.5]),
+            'Left Ankle': np.array([1.5, 0.5, -1.5]),
+            'Right Toes': np.array([1.7, -0.5, -1.5]),
+            'Left Toes': np.array([1.7, 0.5, -1.5])
             } 
         return joints
     
@@ -37,21 +37,21 @@ class DEFAULT_SETTINGS:
         joints = {
             'Head': np.array([0, 0, 0]),
             'Neck': np.array([1, 0, 0]),
-            'Left Shoulder': np.array([1, -0.5, 0]),
-            'Right Shoulder': np.array([1, 0.5, 0]),
-            'Left Elbow' : np.array([2, -0.8, 0]),
-            'Right Elbow' : np.array([2, 0.8, 0]),
-            'Left Wrist' : np.array([3, -1, 0]),
-            'Right Wrist' : np.array([3, 1, 0]),
+            'Right Shoulder': np.array([1, -0.5, 0]),
+            'Left Shoulder': np.array([1, 0.5, 0]),
+            'Right Elbow' : np.array([2, -0.8, 0]),
+            'Left Elbow' : np.array([2, 0.8, 0]),
+            'Right Wrist' : np.array([3, -1, 0]),
+            'Left Wrist' : np.array([3, 1, 0]),
             'Hip': np.array([3, 0, 0]),
-            'Left Hip': np.array([3, -0.5, 0]),
-            'Right Hip': np.array([3, 0.5, 0]),
-            'Left Knee': np.array([4.5, -0.5, 0]),
-            'Right Knee': np.array([4.5, 0.5, 0]),
-            'Left Ankle': np.array([6, -0.5, 0]),
-            'Right Ankle': np.array([6, 0.5, 0]),
-            'Left Toes': np.array([6, -0.5, 0.2]),
-            'Right Toes': np.array([6, 0.5, 0.2])
+            'Right Hip': np.array([3, -0.5, 0]),
+            'Left Hip': np.array([3, 0.5, 0]),
+            'Right Knee': np.array([4.5, -0.5, 0]),
+            'Left Knee': np.array([4.5, 0.5, 0]),
+            'Right Ankle': np.array([6, -0.5, 0]),
+            'Left Ankle': np.array([6, 0.5, 0]),
+            'Right Toes': np.array([6, -0.5, 0.2]),
+            'Left Toes': np.array([6, 0.5, 0.2])
             } 
         return joints
 
