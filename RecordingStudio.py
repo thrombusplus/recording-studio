@@ -1186,12 +1186,14 @@ class IMURecordingStudio(tk.Tk):
             stop = self.joints['Right Knee'] - start  #direction from hip to knee
             norm = stop / np.linalg.norm(stop)  # Normalize the direction vector
             rotated = np.dot(rotationMatrix, norm)  # Apply the rotation matrix
+            temp_ankle = copy.deepcopy(self.new_joints['Right Ankle'])  # Store the current position
             if not np.isnan(rotated).any(): 
                 self.new_joints['Right Knee'] = rotated * np.linalg.norm(stop) + start  # scale the rotated vetcor to the original length
                 displacement = self.new_joints['Right Knee'] - temp_knee  #update new knee position
                 if self.imu_comboboxes[4].get() == "None":
                     move_chain('Right Ankle', displacement)
                 if self.imu_comboboxes[5].get() == "None":
+                    displacement = self.new_joints['Right Ankle'] - temp_ankle  #update new ankle position
                     move_chain('Right Toes', displacement) 
 
         # Rotate the left calf segment 
