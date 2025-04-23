@@ -61,8 +61,6 @@ class IMURecordingStudio(tk.Tk):
         self.thread_flag = [False, False, False, False, False] # Flag for stopping thread
 
 
-        
-       
         self.title("IMU Recording Studio")
         self.geometry("850x900")
         
@@ -274,7 +272,7 @@ class IMURecordingStudio(tk.Tk):
         self.imu_configuration_frame.grid(row=2, column=0, padx=10, pady=10)
         
         # Assume that the maximum number of IMU sensors to be connected are 6
-        temp_list = ["Left Thigh:", "Left Calf:", "Left Foot:","Right Thigh:", "Right Calf:", "Right Foot:"]
+        temp_list = ["Right Thigh:", "Right Calf:", "Right Foot:","Left Thigh:", "Left Calf:", "Left Foot:"]
         for imu in range(6):
             imu_label = ttk.Label(self.imu_configuration_frame, text=temp_list[imu], justify='left')
             imu_label.grid(row=imu+3, column=0, padx=10, pady=10)
@@ -893,6 +891,15 @@ class IMURecordingStudio(tk.Tk):
         
         print("Recording stopped")
 
+        if not hasattr(self, 'selected_data_dir'):
+          self.selected_data_dir = FileManager(self.save_directory_field["text"])
+
+        self.selected_data_dir.save_recording(
+             self.data_queue,
+             self.imu_ordered_configuration,
+             self.patients_id_field.get(),
+             self.exercises_list.get()
+        )
 
     def data_collection_thread(self):
 
