@@ -47,6 +47,9 @@ class IMURecordingStudio(tk.Tk):
         self.reset_heading_flag = False # Flag to perform reset heading
         self.recording = False # Flag to check if recording is active
         
+        self.latest_frame_cam1 =None
+        self.latest_frame_cam2 = None
+
 
         self.data_queue = Queue() # Create a queue
         self.use_queue = False
@@ -1032,6 +1035,8 @@ class IMURecordingStudio(tk.Tk):
                 self.initiate_plot()
                 self.imu.start_measuring_mode()
 
+                time.sleep(1)
+
                 flag_index = 3 if self.recording else 2
                 self.thread_flag[flag_index] =True
                 self.thread[flag_index]= Thread(target=self.update_imu_plot)
@@ -1058,15 +1063,14 @@ class IMURecordingStudio(tk.Tk):
     def update_imu_plot(self):
       self.new_joints = copy.deepcopy(self.joints)
 
+      current_thread_index = 3 if self.recording else 2
 
-      while True:
-        # Βρες το index του thread που τρέχει αυτή τη στιγμή
-        current_thread_index = 3 if self.recording else 2
+   
+      for _ in range(5):
+        self.imu.get_measurments()
+        time.sleep(0.01)
 
-        if not self.thread_flag[current_thread_index]:
-            print("[IMU Thread] Exit signal received.")
-            break
-
+      while self.thread_flag[current_thread_index]:
         try:
             self.imu.get_measurments()
             quaternions = self.imu.quat_data
@@ -1096,11 +1100,12 @@ class IMURecordingStudio(tk.Tk):
                 self.imu.reset_heading()
                 self.reset_heading_flag = False
 
-            # time.sleep(0.05)
+            time.sleep(0.01)  
 
         except Exception as e:
             print(f"[IMU plot] Error: {e}")
             break
+
 
     #Rotation matrix from quaternions as input
     def get_rotation_matrix_quaternions(self, qVector): # returns the rotation matrix from qunternions as input
