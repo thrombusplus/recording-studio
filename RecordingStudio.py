@@ -559,6 +559,8 @@ class IMURecordingStudio(tk.Tk):
 
         camera_manager.streaming = False
 
+        time.sleep(0.03)
+
     def camera2_thread (self):
 
         try:
@@ -585,6 +587,7 @@ class IMURecordingStudio(tk.Tk):
                 self.latest_frame_cam2 = None  
 
         camera_manager.streaming = False
+        time.sleep(0.03)
 
 
     def stream_webcam(self): # No very elegant, maybe can be converted to a for loop
@@ -773,6 +776,11 @@ class IMURecordingStudio(tk.Tk):
       self.imu.sync_IMU_sensors
      
     def start_stop_button_streaming_imu(self):
+       
+        if self.recording:
+            print("IMU already in recording mode.")
+            return
+
         if self.imu_streaming:
             self.stop_imu_streaming()
             # self.imu_streaming = False
@@ -799,6 +807,7 @@ class IMURecordingStudio(tk.Tk):
             cam.streaming=False
 
     def stop_threads(self):
+        
         for i in range(5):
             self.thread_flag[i] = False
             if self.thread[i] is not None:
@@ -808,101 +817,125 @@ class IMURecordingStudio(tk.Tk):
 
     
     def start_recording(self):
-        if self.recording:
-           print("Recording already in progress.")
-           return
+      
+      if self.recording:
+        print("Recording already in progress.")
+        return
+
+      if not self.imu_lock_status:
+        print("Configuration must be locked before starting recording.")
+        return
+
+      print("Preparing to start recording...")
+
+      while not self.data_queue.empty():
+        try:
+            self.data_queue.get_nowait()
+        except Exception as e:
+            print(f"Error while clearing queue: {e}")
+            break
+
+      if not self.imu_streaming:
+        print("Starting IMU measuring mode")
+        self.start_imu_streaming()
+
+    
+      self.reset_heading_and_countdown(5)
+
+
+    def reset_heading_and_countdown(self, seconds_left):
+      if seconds_left == 5:  
+        try:
+            self.imu.reset_heading()
+            self.initiate_plot()
+            self.imu.get_measurments()
+            print("IMU heading reset successfully.")
+        except Exception as e:
+            print(f"Error resetting IMU heading: {e}")
+
+      if seconds_left > 0:
+        print(f"Recording starts in: {seconds_left}...")
+        self.after(1000, lambda: self.reset_heading_and_countdown(seconds_left - 1))
+      else:
         
-        # Add more validations
-        #....
-        #....
-        #....
+        self.start_recording_proper()
 
-        if not self.imu_lock_status:
-           print("Configuration must be locked before starting recording.")
-           return
+    def start_recording_proper(self):
+      print("Starting actual recording...")
 
-        print("Preparing to start recording...")
-        self.stop_threads()
-         #Clear queue
-        while not self.data_queue.empty():
-            try:
-               self.data_queue.get_nowait()
-            except Exception as e:
-                print(f"Error while clearing queue: {e}")
-                break
+      self.stop_threads()
 
+      self.use_queue = True
+      self.recording = True
+    
+      self.thread_flag[0] = True
+      self.thread[0] = Thread(target=self.data_collection_thread)
+      self.thread[0].start()
+      print("Thread 0 (data collection) started.")
 
-        if not self.imu_streaming:
-            print("Starting IMU measuring mode")
-            self.start_imu_streaming()
+   
+      self.thread_flag[1] = True
+      self.thread[1] = Thread(target=self.camera1_thread)
+      self.thread[1].start()
+      print("Thread 1 (camera 1) started.")
 
-        self.thread_flag[1] = True
-        self.thread[1]= Thread(target=self.camera1_thread)
+    
+      self.thread_flag[2] = True
+      self.thread[2] = Thread(target=self.camera2_thread)
+      self.thread[2].start()
+      print("Thread 2 (camera 2) started.")
 
-        self.thread_flag[2] = True
-        self.thread[2]=Thread(target=self.camera2_thread)
+    
+      self.thread_flag[3] = True
+      self.thread[3] = Thread(target=self.update_imu_plot)
+      self.thread[3].start()
+      print("Thread 3 (update skeleton plot) started.")
 
-        self.thread_flag[3]= True
-        self.thread[3] = Thread(target=self.update_imu_plot)
+    
+      self.thread_flag[4] = True
+      self.thread[4] = Thread(target=self.update_camera_figures)
+      self.thread[4].start()
+      print("Thread 4 (update camera figures) started.")
 
-        self.thread_flag[4]= True
-        self.thread[4] = Thread(target=self.update_camera_figures)
-
-        for i in [1,2,3,4]:
-            self.thread[i].start()
-            print(f"Thread {i} started.")
-
-        for i in range(5,-1,-1):
-            print(f"Recording starts in: {i}...")
-
-            if i==3:
-                try:
-                    self.imu.reset_heading()
-                    print("IMU heading reset successfully during countdown.")
-                    time.sleep(2)
-                    self.initiate_plot() #reset plot to initial position
-                    self.imu.get_measurments()
-                    
-                except Exception as e:
-                    print(f"Error while resetting IMU heading: {e}")
-                
-            time.sleep(1)
-
-        #prepare flags and threads
-        self.use_queue = True
-        self.recording = True
-
-        #Start recording
-        self.thread_flag[0] = True
-        self.thread[0] = Thread(target=self.data_collection_thread)
-        self.thread[0].start()
-        print("Data collection started.")
+      print("Recording Started.")
 
 
-        print("Recording Started")
-
-        
     def stop_recording(self):
-        if not self.recording:
-            print("Recording stopped")
-            return
-        
-        self.recording = False
-        for camera in self.InitiatedCameras:
-            camera.streaming = False
-        self.stop_threads()
-        
-        print("Recording stopped")
+      if not self.recording:
+        print("Recording stopped.")
+        return
 
-        if not hasattr(self, 'selected_data_dir'):
-          self.selected_data_dir = FileManager(self.save_directory_field["text"])
+      print("Stopping recording...")
 
-        self.selected_data_dir.save_recording(
-             self.data_queue,
-             self.imu_ordered_configuration,
-             self.patients_id_field.get(),
-             self.exercises_list.get()
-        )
+      self.recording = False
+      self.use_queue = False
+
+    #
+      for i in range(5):
+        self.thread_flag[i] = False
+        if self.thread[i] is not None:
+            self.thread[i].join()
+            self.thread[i] = None
+            print(f"Thread {i} stopped.")
+
+    
+      for camera in self.InitiatedCameras:
+        camera.streaming = False
+
+      print("Recording fully stopped.")
+
+      # Save data
+      if not hasattr(self, 'selected_data_dir'):
+        self.selected_data_dir = FileManager(self.save_directory_field["text"])
+
+      self.selected_data_dir.save_recording(
+        self.data_queue,
+        self.imu_ordered_configuration,
+        self.patients_id_field.get(),
+        self.exercises_list.get()
+    )
+
+      print("Recording saved.")
 
     def data_collection_thread(self):
 
@@ -969,7 +1002,9 @@ class IMURecordingStudio(tk.Tk):
                     self.ax2.axis('off')
                     self.canvas2.draw()
                     print("Camera 2 updated")
-                # time.sleep(0.01)
+                
+                time.sleep(0.01)
+            
             except Exception as e:
                 print(f"[Thread 4] Error during figure update: {e}")
                 
@@ -1011,6 +1046,7 @@ class IMURecordingStudio(tk.Tk):
     def start_imu_streaming(self):
         if self.imu_streaming:
             print("IMU is already streaming.")
+
 
         if self.imu_lock_status:
             self.imu_ordered_configuration = []
@@ -1065,7 +1101,6 @@ class IMURecordingStudio(tk.Tk):
 
       current_thread_index = 3 if self.recording else 2
 
-   
       for _ in range(5):
         self.imu.get_measurments()
         time.sleep(0.01)
@@ -1100,12 +1135,11 @@ class IMURecordingStudio(tk.Tk):
                 self.imu.reset_heading()
                 self.reset_heading_flag = False
 
-            time.sleep(0.01)  
+            time.sleep(0.05)  
 
         except Exception as e:
             print(f"[IMU plot] Error: {e}")
             break
-
 
     #Rotation matrix from quaternions as input
     def get_rotation_matrix_quaternions(self, qVector): # returns the rotation matrix from qunternions as input
