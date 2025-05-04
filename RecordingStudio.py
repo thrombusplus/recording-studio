@@ -949,6 +949,9 @@ class IMURecordingStudio(tk.Tk):
                 else:
                    self.imu.get_measurments()
                    data_entry['imu']= self.imu.quat_data.copy()
+                   data_entry['imu_acc'] = self.imu.acc_data.copy()
+                   data_entry['imu_ts'] = self.imu.sensor_timestamp.copy() #Sensor Timestamp
+
             except Exception as e:
                 print(f"[IMU] Error while collecting data: {e}")
                 data_entry['imu'] = None

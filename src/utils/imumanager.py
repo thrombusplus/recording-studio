@@ -18,6 +18,8 @@ class IMUManager:
         self.gyr_data = np.empty([numOfDevices, 3])
         self.mag_data = np.empty([numOfDevices, 3])
         self.quat_data = np.empty([numOfDevices, 4])
+
+        self.sensor_timestamp = np.zeros((6))  #for save sensor's timestamps
         
     def conenct_IMU_sensors(self):
         xdpcHandler = XdpcHandler()
@@ -130,6 +132,7 @@ class IMUManager:
             for device in self.devices.connectedDots(): #depending on the speed of the for loop, maybe this can take place in parallel 
                 # Retrieve a packet
                 packet = self.devices.getNextPacket(device.portInfo().bluetoothAddress())
+                self.sensor_timestamp[dev] = movelladot_pc_sdk.XsTimeStamp_nowMs()
                         
                 if packet.containsCalibratedData():
                     data = packet.calibratedData()
