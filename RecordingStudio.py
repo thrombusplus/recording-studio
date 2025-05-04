@@ -87,7 +87,7 @@ class IMURecordingStudio(tk.Tk):
         
         # Initiate the Visialization tab
         self.visualization_tab = ttk.Frame(self.tabControl)
-        self.tabControl.add(self.visualization_tab, text='Visualuzation')
+        self.tabControl.add(self.visualization_tab, text='Visualization')
 
         self.visualization_tab.grid_rowconfigure(0, weight=1)
         self.visualization_tab.grid_rowconfigure(1, weight=1)
@@ -910,15 +910,13 @@ class IMURecordingStudio(tk.Tk):
       self.recording = False
       self.use_queue = False
 
-    #
       for i in range(5):
         self.thread_flag[i] = False
         if self.thread[i] is not None:
-            self.thread[i].join()
+            self.thread[i].join(0)
             self.thread[i] = None
             print(f"Thread {i} stopped.")
 
-    
       for camera in self.InitiatedCameras:
         camera.streaming = False
 
@@ -1268,7 +1266,7 @@ class IMURecordingStudio(tk.Tk):
         # self.imu.reset_heading()  
         self.reset_heading_flag = True
         
-    # Methods for the Visualiation tab
+    # Methods for the Visualization tab
     def decrease_frame_nr_button(self):
         if self.frame_nr_var.get() > 0:
             self.frame_nr_var.set(self.frame_nr_var.get()-1)
