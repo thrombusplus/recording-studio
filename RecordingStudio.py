@@ -8,6 +8,7 @@ from threading import Thread
 import threading
 from IPython import get_ipython
 import numpy as np
+import pandas as pd
 import copy
 import os
 from queue import Queue
@@ -60,8 +61,8 @@ class IMURecordingStudio(tk.Tk):
         # When Start Recording Button is pressed -> Thread[0] will be used to Collect data from all sensors, Thread[1] will be used to stream webcam 1, 
         # Thread[2] will be used to stream webcam 2, Thread[3] will be used to plot IMU data
 
-        self.thread = [None, None, None, None, None] # Stores threads
-        self.thread_flag = [False, False, False, False, False] # Flag for stopping thread
+        self.thread = [None, None, None, None, None, None] # Stores threads
+        self.thread_flag = [False, False, False, False, False, False] # Flag for stopping thread
 
 
         self.title("IMU Recording Studio")
@@ -89,13 +90,12 @@ class IMURecordingStudio(tk.Tk):
         self.visualization_tab = ttk.Frame(self.tabControl)
         self.tabControl.add(self.visualization_tab, text='Visualization')
 
-        self.visualization_tab.grid_rowconfigure(0, weight=1)
-        self.visualization_tab.grid_rowconfigure(1, weight=1)
-        self.visualization_tab.grid_rowconfigure(2, weight=1)
+        self.visualization_tab.grid_rowconfigure(0, weight=2)
+        self.visualization_tab.grid_rowconfigure(0, weight=3)
         self.visualization_tab.grid_columnconfigure(0, weight=1)
-        self.visualization_tab.grid_columnconfigure(1, weight=1)
-        self.visualization_tab.grid_columnconfigure(2, weight=1)
-        self.visualization_tab.grid_columnconfigure(3, weight=1)  
+        self.visualization_tab.grid_columnconfigure(1, weight=3)
+        self.visualization_tab.grid_columnconfigure(2, weight=3)
+        self.visualization_tab.grid_columnconfigure(3, weight=3)  
              
         # Setup the main tab (IMU Vector and Camera Views)
         self.create_main_tab()
@@ -357,12 +357,10 @@ class IMURecordingStudio(tk.Tk):
     def create_visualization_tab(self):
         # Camera Views Frame
         visualize_camera_frame = ttk.LabelFrame(self.visualization_tab, text="Camera Visualization")
-        visualize_camera_frame.grid(row=0, column=0, padx=10, pady=10, rowspan=1, columnspan=4, sticky='nsew')
-        visualize_camera_frame.grid_rowconfigure(0, weight=1)
+        visualize_camera_frame.grid(row=1, column=1, columnspan=3, padx=5, pady=5, sticky='nsew')
         visualize_camera_frame.grid_columnconfigure(0, weight=1)
         visualize_camera_frame.grid_columnconfigure(1, weight=1)
-        visualize_camera_frame.grid_columnconfigure(2, weight=1)   
-        visualize_camera_frame.grid_columnconfigure(3, weight=1) 
+        visualize_camera_frame.grid_rowconfigure(0, weight=1)
 
         # Camera 3 Visualization View (using Matplotlib as placeholder)
         self.fig3, self.ax3 = plt.subplots(figsize=(4, 3))
@@ -370,7 +368,7 @@ class IMURecordingStudio(tk.Tk):
         self.ax3.axis('off')
         self.canvas3 = FigureCanvasTkAgg(self.fig3, master=visualize_camera_frame)
         self.canvas3.draw()
-        self.canvas3.get_tk_widget().grid(row=0, column=0, columnspan=2, sticky='nsew')
+        self.canvas3.get_tk_widget().grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
         
         # Camera 4 Visualization View (using Matplotlib as placeholder)
         self.fig4, self.ax4 = plt.subplots(figsize=(4, 3))
@@ -378,28 +376,32 @@ class IMURecordingStudio(tk.Tk):
         self.ax4.axis('off')
         self.canvas4 = FigureCanvasTkAgg(self.fig4, master=visualize_camera_frame)
         self.canvas4.draw()
-        self.canvas4.get_tk_widget().grid(row=0, column=2, columnspan=2, sticky='nsew')
-        
-        
+        self.canvas4.get_tk_widget().grid(row=0, column=1, padx=2, pady=2, sticky='nsew')
+
         # IMU Data Views Frame
         visualize_imus_frame = ttk.LabelFrame(self.visualization_tab, text="IMU Data Visualization")
-        visualize_imus_frame.grid(row=1, column=0, padx=10, pady=10, columnspan=4, sticky='nsew')
-        visualize_imus_frame.grid_rowconfigure(0, weight=1)
-        visualize_imus_frame.grid_columnconfigure(0, weight=1)
-        visualize_imus_frame.grid_columnconfigure(1, weight=1)
-        visualize_imus_frame.grid_columnconfigure(2, weight=1)
-        visualize_imus_frame.grid_columnconfigure(3, weight=1)
+        visualize_imus_frame.grid(row=0, column=1, columnspan=3, padx=5, pady=5, sticky='nsew')
 
-        self.fig5, self.ax5 = plt.subplots(figsize=(8, 2))
-        self.ax5.set_title("Imu Data")
-        self.ax5.axis('off')
-        self.canvas5 = FigureCanvasTkAgg(self.fig5, master=visualize_imus_frame)
-        self.canvas5.draw()
-        self.canvas5.get_tk_widget().grid(row=0, column=0, columnspan=4, sticky='nsew')
+        self.fig_imu, (self.ax_acc, self.ax_ang, self.ax_mag) = plt.subplots(3, 1, figsize=(6, 6))
+        self.fig_imu.tight_layout()
+        self.fig_imu.subplots_adjust(hspace=0.3)
+
+        self.ax_acc.set_ylabel("Acceleration")
+        self.ax_ang.set_ylabel("Angular Velocity")
+        self.ax_mag.set_ylabel("Magnetic Field")
+        self.ax_mag.set_xlabel("Time")
+
+        self.canvas_imu = FigureCanvasTkAgg(self.fig_imu, master=visualize_imus_frame)
+        self.canvas_imu.draw()
+        self.canvas_imu.get_tk_widget().grid(row=0, column=0, sticky='nsew')
+
+        # Enable dynamic resizing
+        visualize_imus_frame.grid_columnconfigure(0, weight=1)
+        visualize_imus_frame.grid_rowconfigure(0, weight=1)
 
         # Pose Viewer
         recorded_data_imu_vector_viewer_frame = ttk.LabelFrame(self.visualization_tab, text="Pose Viewer")   
-        recorded_data_imu_vector_viewer_frame.grid(row=2, column=0, columnspan=1, padx=10, pady=10, sticky='nsew') 
+        recorded_data_imu_vector_viewer_frame.grid(row=1, column=0,columnspan=1, padx=5, pady=5, sticky='nsew')
         recorded_data_imu_vector_viewer_frame.grid_rowconfigure(0, weight=1)
         recorded_data_imu_vector_viewer_frame.grid_columnconfigure(0, weight=1)
 
@@ -412,11 +414,15 @@ class IMURecordingStudio(tk.Tk):
         self.canvas6.get_tk_widget().grid(row=0, column=0, columnspan=1, sticky='nsew')
 
         # Create data visualization checkboxes
+        
         select_data_frame = ttk.LabelFrame(self.visualization_tab, text="Data Control")
-        select_data_frame.grid(row=2, column=1, padx=10, pady=10, columnspan=3, sticky='nsew')
-        # select_data_frame.grid_rowconfigure(0, weight=1)
+        select_data_frame.grid(row=0, column=0, padx=5, pady=5, sticky='nw')
+
+
+        select_data_frame.config(width=250, height=250)
+        select_data_frame.grid_rowconfigure(0, weight=0, minsize=20)
         # select_data_frame.grid_rowconfigure(1, weight=0)
-        # select_data_frame.grid_columnconfigure(0, weight=0)
+        select_data_frame.grid_columnconfigure(0, weight=0,minsize=100)
         # select_data_frame.grid_columnconfigure(1, weight=1)
         # select_data_frame.grid_columnconfigure(2, weight=1)
         # select_data_frame.grid_columnconfigure(4, weight=1)
@@ -425,14 +431,14 @@ class IMURecordingStudio(tk.Tk):
         self.frame_nr_var = tk.IntVar()
         self.frame_nr_var.set(0)
         self.select_frame_scrollbar = tk.Scale(select_data_frame,from_=0, to=1 ,orient='horizontal', label="Frame Slider", variable=self.frame_nr_var)
-        self.select_frame_scrollbar.grid(row=0, column=0, columnspan=4, padx=20, pady=10, sticky='nswe')
-        
+        self.select_frame_scrollbar.grid(row=0, column=0, columnspan=4, padx=5, pady=5, sticky='nsew')
+        self.select_frame_scrollbar.config(command=self.on_frame_slider_change)
 
         # Create buttons to increase decrease frame
         decrease_frame_button = ttk.Button(select_data_frame, text="◀", width=2, command=self.decrease_frame_nr_button)
-        decrease_frame_button.grid(row=0, column=0, padx=0, pady=10, sticky='sw')
+        decrease_frame_button.grid(row=0, column=0, padx=5, pady=5, sticky='sw')
         increase_frame_button = ttk.Button(select_data_frame, text="▶", width=2, command=self.increase_frame_nr_button)
-        increase_frame_button.grid(row=0, column=3, padx=5, pady=10, sticky='se')
+        increase_frame_button.grid(row=0, column=3, padx=5, pady=5, sticky='se')
 
         self.acc_checkbox_var = tk.BooleanVar()
         self.acc_checkbox_var.set(True)
@@ -442,11 +448,11 @@ class IMURecordingStudio(tk.Tk):
         self.mag_checkbox_var.set(False)
 
         self.select_acceleration_tickbox = ttk.Checkbutton(select_data_frame, text="Acceleration", onvalue=True, offvalue=False, variable=self.acc_checkbox_var)
-        self.select_acceleration_tickbox.grid(row=2, column=0, padx=10, pady=10, columnspan=1, sticky='nsew')
+        self.select_acceleration_tickbox.grid(row=2, column=0, padx=5, pady=5, columnspan=1, sticky='nsew')
         self.select_angular_velocity_tickbox = ttk.Checkbutton(select_data_frame, text="Angular Velocity", onvalue=True, offvalue=False, variable=self.ang_checkbox_var)
-        self.select_angular_velocity_tickbox.grid(row=2, column=1, padx=10, pady=10, columnspan=1, sticky='nsew')
+        self.select_angular_velocity_tickbox.grid(row=2, column=1, padx=5, pady=5, columnspan=1, sticky='nsew')
         self.select_magnetic_filed_tickbox = ttk.Checkbutton(select_data_frame, text="Magnetic Field", onvalue=True, offvalue=False, variable = self.mag_checkbox_var)
-        self.select_magnetic_filed_tickbox.grid(row=2, column=2, padx=10, pady=10, columnspan=1,sticky='nsew')
+        self.select_magnetic_filed_tickbox.grid(row=2, column=2, padx=5, pady=5, columnspan=1,sticky='nsew')
 
         ttk.Label(select_data_frame, text="Plot Leg Segment:").grid(row=3, column=0, padx=10, pady=10, columnspan=1, sticky='nsew')    
         self.left_thigh_checkbox_var = tk.BooleanVar()
@@ -463,16 +469,30 @@ class IMURecordingStudio(tk.Tk):
         self.right_foot_checkbox_var.set(True)
         
         self.select_left_thigh_tickbox = ttk.Checkbutton(select_data_frame, text="Left Thigh", onvalue=True, offvalue=False, variable=self.left_thigh_checkbox_var)
-        self.select_left_thigh_tickbox.grid(row=4, column=0, padx=10, pady=10, columnspan=1, sticky='new')
-        #... add the rest buttons
+        self.select_left_thigh_tickbox.grid(row=4, column=0, padx=5, pady=5, columnspan=1, sticky='new')
+        self.select_left_calf_tickbox = ttk.Checkbutton(select_data_frame, text="Left Calf", onvalue=True, offvalue=False, variable=self.left_calf_checkbox_var)
+        self.select_left_calf_tickbox.grid(row=4, column=1, padx=5, pady=5, columnspan=1, sticky='new')
+        self.select_left_foot_tickbox = ttk.Checkbutton(select_data_frame, text="Left Foot", onvalue=True, offvalue=False, variable=self.left_foot_checkbox_var)
+        self.select_left_foot_tickbox.grid(row=4, column=2, padx=5, pady=5, columnspan=1, sticky='new')
+        self.select_right_thigh_tickbox = ttk.Checkbutton(select_data_frame, text="Right Thigh", onvalue=True, offvalue=False, variable=self.right_thigh_checkbox_var)
+        self.select_right_thigh_tickbox.grid(row=5, column=0, padx=5, pady=5, columnspan=1, sticky='new')
+        self.select_right_calf_tickbox = ttk.Checkbutton(select_data_frame, text="Right Calf", onvalue=True, offvalue=False, variable=self.right_calf_checkbox_var)
+        self.select_right_calf_tickbox.grid(row=5, column=1, padx=5, pady=5, columnspan=1, sticky='new')
+        self.select_right_foot_tickbox = ttk.Checkbutton(select_data_frame, text="Right Foot", onvalue=True, offvalue=False, variable=self.right_foot_checkbox_var)
+        self.select_right_foot_tickbox.grid(row=5, column=2, padx=5, pady=5, columnspan=1, sticky='new')
         
         #Drop down with available recordings
         self.available_recording_combobox = ttk.Combobox(select_data_frame, state="disabled", values= 'None')
-        self.available_recording_combobox.grid(row=5, column=1, columnspan=1, sticky='new')
+        self.available_recording_combobox.grid(row=6, column=0,padx=5,pady=5, columnspan=1, sticky='new')
+        self.available_recording_combobox.config(width=15)
         
-        load_recordings_button = ttk.Button(select_data_frame, text="Load Data", command=self.load_recordings)   
-        load_recordings_button.grid(row=5, column=0, padx=10, columnspan=1, sticky='new')
+        self.available_recording_combobox.bind('<<ComboboxSelected>>', self.on_select_recording)
 
+        load_button = ttk.Button(select_data_frame, text="Load Data", command=self.load_recordings)
+        load_button.grid(row=6, column=1, padx=5, pady=5, columnspan=1, sticky='new')
+        
+        #self.update_plots_button = ttk.Button(select_data_frame, text="Update Plots", command=self.update_visualization_plots)
+        #self.update_plots_button.grid(row=6, column=2, padx=10, pady=10, columnspan=1, sticky='new')
 
     def connect_webcams(self):
         # set camera_lamps to OFF - in case of reconnection
@@ -571,8 +591,7 @@ class IMURecordingStudio(tk.Tk):
             print(f"[Camera 2 Thread] Could not initialize camera: {e}")
             return
 
-        flag_index =2 if self.recording else 1
-
+        flag_index =3 if self.recording else 1
 
         while self.thread_flag[flag_index]:
             try:
@@ -807,15 +826,18 @@ class IMURecordingStudio(tk.Tk):
             cam.streaming=False
 
     def stop_threads(self):
-        
-        for i in range(5):
-            self.thread_flag[i] = False
-            if self.thread[i] is not None:
-               self.thread[i].join(0)
-               self.thread[i] = None
-               print(f"Thread {i} stopped.")
+        for i in range(6):
+        # Skip stopping IMU streaming thread if it’s running separately
+          if i == 2 and self.imu_streaming and not self.recording:
+            print("[DEBUG] Skipping stop of IMU streaming thread[2]")
+            continue
 
-    
+        self.thread_flag[i] = False
+        if self.thread[i] is not None:
+            self.thread[i].join(0)
+            self.thread[i] = None
+            print(f" Stopped and cleared thread[{i}]")
+
     def start_recording(self):
       
       if self.recording:
@@ -869,75 +891,82 @@ class IMURecordingStudio(tk.Tk):
       self.recording = True
     
       self.thread_flag[0] = True
-      self.thread[0] = Thread(target=self.data_collection_thread)
+      self.thread[0] = Thread(target=self.camera1_thread)
       self.thread[0].start()
-      print("Thread 0 (data collection) started.")
+      print("Thread 0  started.")
 
    
       self.thread_flag[1] = True
-      self.thread[1] = Thread(target=self.camera1_thread)
+      self.thread[1] = Thread(target=self.camera2_thread)
       self.thread[1].start()
-      print("Thread 1 (camera 1) started.")
-
-    
-      self.thread_flag[2] = True
-      self.thread[2] = Thread(target=self.camera2_thread)
-      self.thread[2].start()
-      print("Thread 2 (camera 2) started.")
-
+      print("Thread 1 started.")
     
       self.thread_flag[3] = True
       self.thread[3] = Thread(target=self.update_imu_plot)
       self.thread[3].start()
-      print("Thread 3 (update skeleton plot) started.")
+      print("Thread 3 started.")
 
     
       self.thread_flag[4] = True
       self.thread[4] = Thread(target=self.update_camera_figures)
       self.thread[4].start()
-      print("Thread 4 (update camera figures) started.")
+      print("Thread 4  started.")
+
+      self.thread_flag[5] = True  # New thread for  data collection
+      self.thread[5] = Thread(target=self.data_collection_thread)
+      self.thread[5].start()
+      print("Thread 5  started.")
 
       print("Recording Started.")
 
-
     def stop_recording(self):
-      if not self.recording:
+     if not self.recording:
         print("Recording stopped.")
         return
 
-      print("Stopping recording...")
+     print("Stopping recording...")
 
-      self.recording = False
-      self.use_queue = False
+     self.recording = False
+     self.use_queue = False
 
-      for i in range(5):
+     for i in [0, 1, 3, 4, 5]:
         self.thread_flag[i] = False
         if self.thread[i] is not None:
             self.thread[i].join(0)
             self.thread[i] = None
             print(f"Thread {i} stopped.")
 
-      for camera in self.InitiatedCameras:
+     for camera in self.InitiatedCameras:
         camera.streaming = False
 
-      print("Recording fully stopped.")
+     if self.imu_streaming:
+        self.stop_imu_streaming()
 
-      # Save data
-      if not hasattr(self, 'selected_data_dir'):
+     self.imu_streaming = False
+     self.thread_flag[2] = False
+     self.thread[2] = None
+
+     print("Recording fully stopped.")
+
+     # Save data
+     if not hasattr(self, 'selected_data_dir'):
         self.selected_data_dir = FileManager(self.save_directory_field["text"])
 
-      self.selected_data_dir.save_recording(
+     self.selected_data_dir.save_recording(
         self.data_queue,
         self.imu_ordered_configuration,
         self.patients_id_field.get(),
         self.exercises_list.get()
-    )
+     )
+     print("Recording saved.")
 
-      print("Recording saved.")
+     self.camera_list_1['state'] = 'readonly'
+     self.camera_list_2['state'] = 'readonly'
+
+     print("System fully reset: Ready for new streaming or recording.")
 
     def data_collection_thread(self):
-
-        while self.thread_flag[0]:
+        while self.thread_flag[5]:
             data_entry ={}
             timestamp = time.time()
 
@@ -950,6 +979,8 @@ class IMURecordingStudio(tk.Tk):
                    self.imu.get_measurments()
                    data_entry['imu']= self.imu.quat_data.copy()
                    data_entry['imu_acc'] = self.imu.acc_data.copy()
+                   data_entry['imu_ang'] = self.imu.gyr_data.copy()
+                   data_entry['imu_mag'] = self.imu.mag_data.copy()
                    data_entry['imu_ts'] = self.imu.sensor_timestamp.copy() #Sensor Timestamp
 
             except Exception as e:
@@ -979,8 +1010,7 @@ class IMURecordingStudio(tk.Tk):
                 
             data_entry['timestamp'] = timestamp
             
-            if self.recording:  
-                 
+            if self.recording:    
             #save data
               if self.use_queue:
                 self.data_queue.put(data_entry)
@@ -1009,24 +1039,6 @@ class IMURecordingStudio(tk.Tk):
             except Exception as e:
                 print(f"[Thread 4] Error during figure update: {e}")
                 
-
-    """def update_all_figures(self):
-        while self.thread_flag[3]:
-           
-           try:
-              
-            # Update figure camera 1
-              if self.latest_frame_cam1 is not None:
-                  self.update_canvas (self.ax1, self.canvas1, self.latest_frame_cam1)
-
-            # update figure camera 2
-              if self.latest_frame_cam2 is not None:
-                 self.update_canvas (self.ax2, self.canvas2, self.latest_frame_cam2)  
-            
-              time.sleep(0.05)         
-           except Exception as e:       
-                 print(f"[Thread 3] Error during figure update: {e}")
-                 break"""
 
     def stop_imu_streaming(self):
         if self.imu_streaming:
@@ -1074,7 +1086,7 @@ class IMURecordingStudio(tk.Tk):
 
                 time.sleep(1)
 
-                flag_index = 3 if self.recording else 2
+                flag_index = 2
                 self.thread_flag[flag_index] =True
                 self.thread[flag_index]= Thread(target=self.update_imu_plot)
                 self.thread[flag_index].start()
@@ -1271,24 +1283,79 @@ class IMURecordingStudio(tk.Tk):
         
     # Methods for the Visualization tab
     def decrease_frame_nr_button(self):
-        if self.frame_nr_var.get() > 0:
-            self.frame_nr_var.set(self.frame_nr_var.get()-1)
+        current = self.frame_nr_var.get()
+        if current > 0:
+            self.frame_nr_var.set(current - 1)
+            self.update_visualization_plots(current -1)
         else:
             print("Frame number is already at the minimum value")
 
     def increase_frame_nr_button(self):
-        if self.frame_nr_var.get() < self.select_frame_scrollbar['to']:
-            self.frame_nr_var.set(self.frame_nr_var.get()+1)
+        current = self.frame_nr_var.get()
+        max_frame = int(self.select_frame_scrollbar['to'])
+        if current < max_frame:
+            self.frame_nr_var.set(current + 1)
+            self.update_visualization_plots()
         else:
-            print("Frame number is already at the maximum value")    
+            print("Frame number is already at the maximum value")  
+
+    def on_frame_slider_change(self, value):
+        current_frame = int(float(value))
+        self.update_visualization_plots(current_frame)  
 
     def load_recordings(self):
-        path = filedialog.askdirectory()
-        self.selected_data_dir = FileManager(path)
-        self.available_recording_combobox['values'] = self.selected_data_dir.get_subfodlers()
-        self.available_recording_combobox['state'] = 'readonly'
-        self.available_recording_combobox.current(0)
-        print(self.selected_data_dir.get_subfodlers())
+        try:
+            folder_path = filedialog.askdirectory(title="Select Recordings Folder")
+            if not folder_path:
+                print("No folder selected.")
+                return
+
+            self.selected_data_dir = folder_path
+
+        # Find all CSV files (full filenames)
+            csv_files = [f for f in os.listdir(folder_path) if f.endswith('.csv')]
+            if not csv_files:
+                print("No CSV files found in the selected folder.")
+                self.available_recording_combobox['values'] = []
+                self.available_recording_combobox['state'] = 'disabled'
+                return
+
+            self.available_recording_combobox['values'] = csv_files
+            self.available_recording_combobox['state'] = 'readonly'
+            self.available_recording_combobox.set(csv_files[0])  # set first
+
+        except Exception as e:
+            print(f"[Load Recordings] Error: {e}")
+
+        selected_file = os.path.join(folder_path, self.available_recording_combobox.get())
+        df = pd.read_csv(selected_file)
+
+        num_frames = len(df)
+        num_imus = 6
+
+        self.loaded_acc_data = []
+        self.loaded_ang_data = []
+        self.loaded_mag_data = []
+
+        # Start after timestamp
+        col_idx = 1
+
+        for imu_idx in range(num_imus):
+            quat_cols = df.iloc[:, col_idx : col_idx + 4]
+            acc_cols = df.iloc[:, col_idx + 4 : col_idx + 7]
+            ang_cols = df.iloc[:, col_idx + 7 : col_idx + 10]
+            mag_cols = df.iloc[:, col_idx + 10 : col_idx + 13]
+
+            self.loaded_acc_data.append(acc_cols.values)
+            self.loaded_ang_data.append(ang_cols.values)
+            self.loaded_mag_data.append(mag_cols.values)
+
+            col_idx += 13  # move to next IMU
+
+        self.select_frame_scrollbar['to'] = num_frames - 1
+        self.setup_visualization_callbacks()
+
+        print(f"Loaded {num_frames} frames, {num_imus} IMUs, for visualization.")
 
 
 # Run the application
