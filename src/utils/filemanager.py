@@ -31,9 +31,9 @@ class FileManager:
         with open(imu_csv_path, mode='w', newline='') as csvfile, open(imu_txt_path, mode='w') as txtfile:
          writer = csv.writer(csvfile)
 
-    # Write header
+
          header = ["timestamp"]
-         for i in range(6):  # 6 IMUs
+         for i in range(6):  
             header += [f"IMU_{i}_q0", f"IMU_{i}_q1", f"IMU_{i}_q2", f"IMU_{i}_q3"]
             header += [f"IMU_{i}_acc_x", f"IMU_{i}_acc_y", f"IMU_{i}_acc_z"]
             header += [f"IMU_{i}_ang_x", f"IMU_{i}_ang_y", f"IMU_{i}_ang_z"]
@@ -48,37 +48,40 @@ class FileManager:
                 imu_ang = data.get('imu_ang')
                 imu_mag = data.get('imu_mag')
                 imu_ts = data.get('imu_ts')
-                unix_ts = int(data['timestamp'] * 1000)  # Convert to milliseconds
+                unix_ts = int(data['timestamp'] * 1000)
 
-                row = [data['timestamp']]
-                for idx in range(6):
-                # Add quaternions
-                    if imu_quat is not None and idx < imu_quat.shape[0]:
-                        row.extend(np.round(imu_quat[idx], 4))
+                row = [data['timestamp']]  
+
+                for pos_idx in range(6):  # 0: R Thigh, ..., 5: L Foot
+                    imu_idx = imu_ordered_configuration[pos_idx] if pos_idx < len(imu_ordered_configuration) else -1
+
+                 # Quaternion
+                    if imu_idx != -1 and imu_quat is not None and imu_idx < len(imu_quat):
+                        row.extend(np.round(imu_quat[imu_idx], 4))
                     else:
                         row.extend([""] * 4)
 
-                # Add accelerometer
-                    if imu_acc is not None and idx < imu_acc.shape[0]:
-                        row.extend(np.round(imu_acc[idx], 4))
+                # Acc
+                    if imu_idx != -1 and imu_acc is not None and imu_idx < len(imu_acc):
+                        row.extend(np.round(imu_acc[imu_idx], 4))
                     else:
                         row.extend([""] * 3)
 
-                # Add angular velocity
-                    if imu_ang is not None and idx < imu_ang.shape[0]:
-                        row.extend(np.round(imu_ang[idx], 4))
+                # Angular
+                    if imu_idx != -1 and imu_ang is not None and imu_idx < len(imu_ang):
+                        row.extend(np.round(imu_ang[imu_idx], 4))
                     else:
                         row.extend([""] * 3)
 
-                # Add magnetometer
-                    if imu_mag is not None and idx < imu_mag.shape[0]:
-                        row.extend(np.round(imu_mag[idx], 4))
+                # Mag
+                    if imu_idx != -1 and imu_mag is not None and imu_idx < len(imu_mag):
+                        row.extend(np.round(imu_mag[imu_idx], 4))
                     else:
                         row.extend([""] * 3)
 
-                    writer.writerow(row)
+                writer.writerow(row)
 
-                  # TXT 
+                # TXT 
                 if imu_ordered_configuration and isinstance(imu_quat, np.ndarray) and isinstance(imu_acc, np.ndarray):
                       for pos_idx in range(6):  
                           imu_idx = imu_ordered_configuration[pos_idx] if pos_idx < len(imu_ordered_configuration) else -1
@@ -94,7 +97,7 @@ class FileManager:
                               line = f"{unix_ts}|{leg}|\n{sensor_timestamp},{','.join(quat)},{','.join(accel)}\n"
                               txtfile.write(line)
 
-                  # Frames
+                # Frames
                 if data['frame_cam1'] is not None:
                     camera1_frames.append(data['frame_cam1'])
                 if data['frame_cam2'] is not None:
@@ -109,4 +112,3 @@ class FileManager:
            np.save(cam2_path, np.array(camera2_frames))
 
         print(f"Saved files: {imu_csv_path}, {imu_txt_path}, {cam1_path}, {cam2_path}")
-
