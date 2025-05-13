@@ -10,7 +10,7 @@ class FileManager:
         self.file_path = file_path
         self.file = None
        
-    def save_recording(self, data_queue, imu_ordered_configuration, patient_id, exercise_name):
+    def save_recording(self, data_queue, imu_ordered_configuration, patient_id, exercise_name, pose_setting):
         
         # Count existing recordings
         pattern = os.path.join(self.file_path, f"{patient_id}_{exercise_name}_*")
@@ -110,5 +110,11 @@ class FileManager:
            np.save(cam1_path, np.array(camera1_frames))
         if camera2_frames:
            np.save(cam2_path, np.array(camera2_frames))
-
+        
+        #Pose information
+        pose_code = "L" if pose_setting == "Laying" else "S"
+        with open(imu_csv_path, 'a', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([f"#POSE={pose_code}"])
+        
         print(f"Saved files: {imu_csv_path}, {imu_txt_path}, {cam1_path}, {cam2_path}")
