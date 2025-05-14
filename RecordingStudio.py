@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox
 from tkinter import filedialog
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg,NavigationToolbar2Tk
+from matplotlib.ticker import MaxNLocator
 import time
 from threading import Thread
 import threading
@@ -276,7 +277,7 @@ class IMURecordingStudio(tk.Tk):
         self.imu_configuration_frame.grid(row=2, column=0, padx=10, pady=10)
         
         # Assume that the maximum number of IMU sensors to be connected are 6
-        temp_list = ["Right Thigh:", "Right Calf:", "Right Foot:","Left Thigh:", "Left Calf:", "Left Foot:"]
+        temp_list = ["Left Thigh:", "Left Calf:", "Left Foot:","Right Thigh:", "Right Calf:", "Right Foot:"]
         for imu in range(6):
             imu_label = ttk.Label(self.imu_configuration_frame, text=temp_list[imu], justify='left')
             imu_label.grid(row=imu+3, column=0, padx=10, pady=10)
@@ -364,7 +365,7 @@ class IMURecordingStudio(tk.Tk):
 
         # Front View Frame
         visualize_camera_frame_front = ttk.LabelFrame(self.visualization_tab, text="Front View")
-        visualize_camera_frame_front.grid(row=5, column=3, columnspan=4,rowspan=4, padx=5, pady=5, sticky='nsew')
+        visualize_camera_frame_front.grid(row=4, column=3, columnspan=4,rowspan=4, padx=5, pady=5, sticky='nsew')
         visualize_camera_frame_front.grid_rowconfigure(0, weight=1)
         visualize_camera_frame_front.grid_columnconfigure(0, weight=1)
 
@@ -377,7 +378,7 @@ class IMURecordingStudio(tk.Tk):
 
         # Side View Frame
         visualize_camera_frame_side = ttk.LabelFrame(self.visualization_tab, text="Side View")
-        visualize_camera_frame_side.grid(row=5, column=7, columnspan=4, rowspan=4, padx=5, pady=5, sticky='nsew')
+        visualize_camera_frame_side.grid(row=4, column=7, columnspan=4, rowspan=4, padx=5, pady=5, sticky='nsew')
         visualize_camera_frame_side.grid_rowconfigure(0, weight=1)
         visualize_camera_frame_side.grid_columnconfigure(0, weight=1)
 
@@ -390,15 +391,14 @@ class IMURecordingStudio(tk.Tk):
 
         # IMU Data Views Frame
         visualize_imus_frame = ttk.LabelFrame(self.visualization_tab, text="IMU Data Visualization")
-        visualize_imus_frame.grid(row=0, column=3, rowspan=5,columnspan=8, padx=5, pady=5, sticky='nsew')
+        visualize_imus_frame.grid(row=0, column=3, rowspan=4,columnspan=8, padx=5, pady=5, sticky='nsew')
 
-        self.fig_imu, self.ax_imu = plt.subplots(figsize=(8, 6))
+        self.fig_imu, self.ax_imu = plt.subplots(figsize=(12, 6))
         self.fig_imu.tight_layout()
         self.fig_imu.subplots_adjust(hspace=0.3)
 
         self.ax_imu.set_ylabel("Value")      
         self.ax_imu.set_xlabel("Time")       
-        self.ax_imu.set_title("IMU Data Plot")
 
         self.canvas_imu = FigureCanvasTkAgg(self.fig_imu, master=visualize_imus_frame)
         self.canvas_imu.draw()
@@ -408,6 +408,7 @@ class IMURecordingStudio(tk.Tk):
         self.toolbar = NavigationToolbar2Tk(self.canvas_imu,visualize_imus_frame)
         self.toolbar.update()
         self.toolbar.pack(side=tk.BOTTOM, fill=tk.X)
+        self.toolbar.pan()
 
         # Enable dynamic resizing
         visualize_imus_frame.grid_columnconfigure(0, weight=1)
@@ -429,7 +430,7 @@ class IMURecordingStudio(tk.Tk):
 
         # Create data visualization checkboxes
         select_data_frame = ttk.LabelFrame(self.visualization_tab, text="Data Control")
-        select_data_frame.grid(row=0, column=0,rowspan=3, columnspan=3, padx=5, pady=5, sticky='nw')
+        select_data_frame.grid(row=0, column=0,rowspan=4, columnspan=3, padx=5, pady=5, sticky='nw')
 
         select_data_frame.config(width=250, height=250)
         select_data_frame.grid_rowconfigure(0, weight=0, minsize=20)
@@ -439,6 +440,18 @@ class IMURecordingStudio(tk.Tk):
         # select_data_frame.grid_columnconfigure(2, weight=1)
         # select_data_frame.grid_columnconfigure(4, weight=1)
         
+        # Camera 1 files
+        self.camera1_npy_combobox = ttk.Combobox(select_data_frame, state="disabled", values=[])
+        self.camera1_npy_combobox.grid(row=7, column=0, columnspan=1, sticky='ew', padx=5)
+
+        # Camera 2 files
+        self.camera2_npy_combobox = ttk.Combobox(select_data_frame, state="disabled", values=[])
+        self.camera2_npy_combobox.grid(row=8, column=0, columnspan=1, sticky='ew', padx=5)
+
+        # Button for camera files
+        load_camera_button = ttk.Button(select_data_frame, text="Load Camera Files", command=self.load_camera_folder)
+        load_camera_button.grid(row=7, column=1, columnspan=1, sticky='ew', padx=5, pady=5)
+
         # Create the Scale bar for scrolling through frames
         self.frame_nr_var = tk.IntVar()
         self.frame_nr_var.set(0)
@@ -968,7 +981,8 @@ class IMURecordingStudio(tk.Tk):
         self.data_queue,
         self.imu_ordered_configuration,
         self.patients_id_field.get(),
-        self.exercises_list.get()
+        self.exercises_list.get(),
+        self.imu_pose_selection.get() #Sitting or Laying
      )
      print("Recording saved.")
 
@@ -1315,6 +1329,74 @@ class IMURecordingStudio(tk.Tk):
         current_frame = int(float(value))
         self.frame_nr_var.set(current_frame)
         self.update_visualization_plots(current_frame)  
+    
+    def load_camera_folder(self):
+        folder = filedialog.askdirectory(title="Select Folder with NPY camera files")
+        if not folder:
+            return
+
+        npy_files = [f for f in os.listdir(folder) if f.endswith(".npy")]
+        npy_paths = [os.path.join(folder, f) for f in npy_files]
+
+        if not npy_paths:
+            print("No .npy files found.")
+            return
+
+        self.camera_npy_files = dict(zip(npy_files, npy_paths))  
+
+        self.camera1_npy_combobox['values'] = npy_files
+        self.camera2_npy_combobox['values'] = npy_files
+        self.camera1_npy_combobox['state'] = 'readonly'
+        self.camera2_npy_combobox['state'] = 'readonly'
+
+        # Ορίζουμε default τιμές
+        self.camera1_npy_combobox.set(npy_files[0])
+        if len(npy_files) > 1:
+            self.camera2_npy_combobox.set(npy_files[1])
+        else:
+            self.camera2_npy_combobox.set(npy_files[0])
+
+        # σύνδεση event
+        self.camera1_npy_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_npy(1))
+        self.camera2_npy_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_npy(2))
+
+        # φορτώνουμε τα αρχικά default αρχεία
+        self.load_selected_camera_npy(1)
+        self.load_selected_camera_npy(2)
+
+
+    def on_select_camera_npy(self, event):
+     selected_file = self.camera_npy_combobox.get()
+     self.load_selected_camera_npy(selected_file)
+
+    def load_selected_camera_npy(self, camera_id):
+     try:
+        if camera_id == 1:
+            filename = self.camera1_npy_combobox.get()
+        else:
+            filename = self.camera2_npy_combobox.get()
+
+        path = self.camera_npy_files.get(filename)
+        if not path:
+            print(f"No path found for {filename}")
+            return
+
+        data = np.load(path, allow_pickle=True)
+        if camera_id == 1:
+            self.loaded_camera1_frames = data
+        else:
+            self.loaded_camera2_frames = data
+
+        print(f"Loaded Camera {camera_id} from {path}")
+        if hasattr(self, 'timestamps'):
+            self.select_frame_scrollbar['to'] = len(data) - 1
+
+        self.update_camera_views(self.frame_nr_var.get())
+
+     except Exception as e:
+        print(f"[Load Camera {camera_id}] Error: {e}")
+
+
 
     def load_recordings(self):
         try:
@@ -1386,7 +1468,23 @@ class IMURecordingStudio(tk.Tk):
 
         # Load IMU data
         if os.path.exists(csv_path):
-            self.loaded_imu_data = pd.read_csv(csv_path)
+            df_full = pd.read_csv(csv_path)
+            self.loaded_imu_data = df_full.iloc[:-1].copy()
+            # Detect and set pose from last line of CSV
+            try:
+                with open(csv_path, 'r') as f:
+                    lines = f.readlines()
+                    if lines:
+                        last_line = lines[-1].strip()
+                        if last_line.startswith("#POSE="):
+                            pose_code = last_line.split("=")[-1]
+                            if pose_code == "L":
+                                self.imu_pose_selection.set("Laying")
+                            else:
+                                self.imu_pose_selection.set("Sitting")
+            except Exception as e:
+                print(f"[POSE] Could not read pose info from file: {e}")
+
             self.timestamps = self.loaded_imu_data["timestamp"].to_numpy()
     
             self.loaded_acc_data = []
@@ -1412,13 +1510,14 @@ class IMURecordingStudio(tk.Tk):
             return
         
         imu_tickbox_map = {
-            0: self.right_thigh_checkbox_var,
-            1: self.right_calf_checkbox_var,
-            2: self.right_foot_checkbox_var,
-            3: self.left_thigh_checkbox_var,
-            4: self.left_calf_checkbox_var,
-            5: self.left_foot_checkbox_var
+            0: self.left_thigh_checkbox_var,
+            1: self.left_calf_checkbox_var,
+            2: self.left_foot_checkbox_var,
+            3: self.right_thigh_checkbox_var,
+            4: self.right_calf_checkbox_var,
+            5: self.right_foot_checkbox_var
         }
+
         
         for imu_index in range(6):
             acc_cols = [f"IMU_{imu_index}_acc_x", f"IMU_{imu_index}_acc_y", f"IMU_{imu_index}_acc_z"]
@@ -1484,15 +1583,15 @@ class IMURecordingStudio(tk.Tk):
             active = False
 
             imu_tickbox_map = {
-                0: self.right_thigh_checkbox_var,
-                1: self.right_calf_checkbox_var,
-                2: self.right_foot_checkbox_var,
-                3: self.left_thigh_checkbox_var,
-                4: self.left_calf_checkbox_var,
-                5: self.left_foot_checkbox_var
+                0: self.left_thigh_checkbox_var,
+                1: self.left_calf_checkbox_var,
+                2: self.left_foot_checkbox_var,
+                3: self.right_thigh_checkbox_var,
+                4: self.right_calf_checkbox_var,
+                5: self.right_foot_checkbox_var
             }
 
-            imu_labels = ['R Thigh', 'R Calf', 'R Foot', 'L Thigh', 'L Calf', 'L Foot']
+            imu_labels = ['L Thigh', 'L Calf', 'L Foot','R Thigh', 'R Calf', 'R Foot']
 
             for i in range(len(self.loaded_acc_data)):
                 if i not in imu_tickbox_map or not imu_tickbox_map[i].get():
@@ -1510,8 +1609,8 @@ class IMURecordingStudio(tk.Tk):
                     self.ax_imu.scatter(self.timestamps[idx], acc_x[idx], color='blue', s=40, zorder=5)
                     self.ax_imu.scatter(self.timestamps[idx], acc_y[idx], color='cyan', s=40, zorder=5)
                     self.ax_imu.scatter(self.timestamps[idx], acc_z[idx], color='navy', s=40, zorder=5)
-                    self.ax_imu.set_ylabel('m/s²')
-                    self.ax_imu.set_title('Acceleration')
+                    #self.ax_imu.set_ylabel('m/s²')
+                    #self.ax_imu.set_title('Acceleration')
                     active = True
 
                 if self.ang_checkbox_var.get() and not np.isnan(self.loaded_ang_data[i]).all():
@@ -1524,8 +1623,8 @@ class IMURecordingStudio(tk.Tk):
                     self.ax_imu.scatter(self.timestamps[idx], ang_x[idx], color='orange', s=40, zorder=5)
                     self.ax_imu.scatter(self.timestamps[idx], ang_y[idx], color='gold', s=40, zorder=5)
                     self.ax_imu.scatter(self.timestamps[idx], ang_z[idx], color='red', s=40, zorder=5)
-                    self.ax_imu.set_ylabel('rad/s')
-                    self.ax_imu.set_title('Angular Velocity')
+                    #self.ax_imu.set_ylabel('rad/s')
+                    #self.ax_imu.set_title('Angular Velocity')
                     active = True
 
                 if self.mag_checkbox_var.get() and not np.isnan(self.loaded_mag_data[i]).all():
@@ -1538,8 +1637,8 @@ class IMURecordingStudio(tk.Tk):
                     self.ax_imu.scatter(self.timestamps[idx], mag_x[idx], color='green', s=40, zorder=5)
                     self.ax_imu.scatter(self.timestamps[idx], mag_y[idx], color='lime', s=40, zorder=5)
                     self.ax_imu.scatter(self.timestamps[idx], mag_z[idx], color='darkgreen', s=40, zorder=5)
-                    self.ax_imu.set_ylabel('μT')
-                    self.ax_imu.set_title('Magnetic Field')
+                    #self.ax_imu.set_ylabel('μT')
+                    #self.ax_imu.set_title('Magnetic Field')
                     active = True
 
             if not active:
@@ -1549,13 +1648,43 @@ class IMURecordingStudio(tk.Tk):
             self.ax_imu.grid(True)
             self.ax_imu.legend()
             self.fig_imu.tight_layout()
+            self.ax_imu.set_autoscale_on(True)
+            self.ax_imu.set_navigate(True)
+            self.ax_imu.xaxis.set_major_locator(MaxNLocator(7))
+
+            for label in self.ax_imu.get_xticklabels():
+                label.set_rotation(0)
+                label.set_horizontalalignment('center')
+
             self.canvas_imu.draw()
 
             # Update the Pose Viewer
             self.update_pose_viewer(idx)
 
+            # Update camera view
+            self.update_camera_views(idx)
+
         except Exception as e:
             print(f"[Visualization Update] Error: {e}")
+
+    def update_camera_views(self, frame_idx):
+     try:
+        # Camera 1 (Front View)
+        if self.loaded_camera1_frames is not None and frame_idx < len(self.loaded_camera1_frames):
+            self.ax3.clear()
+            self.ax3.imshow(self.loaded_camera1_frames[frame_idx])
+            self.ax3.axis('off')
+            self.canvas3.draw()
+
+        # Camera 2 (Side View)
+        if self.loaded_camera2_frames is not None and frame_idx < len(self.loaded_camera2_frames):
+            self.ax4.clear()
+            self.ax4.imshow(self.loaded_camera2_frames[frame_idx])
+            self.ax4.axis('off')
+            self.canvas4.draw()
+
+     except Exception as e:
+        print(f"[Camera Visualization] Error at frame {frame_idx}: {e}")
 
     def update_pose_viewer(self, frame_idx):
         try:
@@ -1572,13 +1701,14 @@ class IMURecordingStudio(tk.Tk):
             self.get_pose()
             self.new_joints = copy.deepcopy(self.joints)
 
-            segment_labels = [
-                "Right Thigh", "Right Calf", "Right Foot",
-                "Left Thigh", "Left Calf", "Left Foot"
+            segment_labels = [ 
+                "Left Thigh", "Left Calf", "Left Foot",
+                "Right Thigh", "Right Calf", "Right Foot"
             ]
+            
             checkbox_vars = [
-                self.right_thigh_checkbox_var, self.right_calf_checkbox_var, self.right_foot_checkbox_var,
-                self.left_thigh_checkbox_var, self.left_calf_checkbox_var, self.left_foot_checkbox_var
+                self.left_thigh_checkbox_var, self.left_calf_checkbox_var, self.left_foot_checkbox_var,
+                self.right_thigh_checkbox_var, self.right_calf_checkbox_var, self.right_foot_checkbox_var
             ]
 
             for i in range(6):
@@ -1596,7 +1726,6 @@ class IMURecordingStudio(tk.Tk):
 
         except Exception as e:
             print(f"[Pose Viewer] Error updating pose: {e}")
-
 
 # Run the application
 if __name__ == "__main__":
