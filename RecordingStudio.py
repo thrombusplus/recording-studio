@@ -1492,9 +1492,9 @@ class IMURecordingStudio(tk.Tk):
             self.loaded_mag_data = []
 
             for imu_index in range(6):
-                acc_cols = [f"IMU_{imu_index}_acc_x", f"IMU_{imu_index}_acc_y", f"IMU_{imu_index}_acc_z"]
-                ang_cols = [f"IMU_{imu_index}_ang_x", f"IMU_{imu_index}_ang_y", f"IMU_{imu_index}_ang_z"]
-                mag_cols = [f"IMU_{imu_index}_mag_x", f"IMU_{imu_index}_mag_y", f"IMU_{imu_index}_mag_z"]
+                acc_cols = [f"acc.x({imu_index})", f"acc.y({imu_index})", f"acc.z({imu_index})"]
+                ang_cols = [f"ang.x({imu_index})", f"ang.y({imu_index})", f"ang.z({imu_index})"]
+                mag_cols = [f"mag.x({imu_index})", f"ang.y({imu_index})", f"mag.z({imu_index})"]
 
                 acc_values = self.loaded_imu_data[acc_cols].to_numpy()
                 ang_values = self.loaded_imu_data[ang_cols].to_numpy()
@@ -1520,7 +1520,7 @@ class IMURecordingStudio(tk.Tk):
 
         
         for imu_index in range(6):
-            acc_cols = [f"IMU_{imu_index}_acc_x", f"IMU_{imu_index}_acc_y", f"IMU_{imu_index}_acc_z"]
+            acc_cols = [f"acc.x({imu_index})", f"acc.y({imu_index})", f"acc.z({imu_index})"]
 
             if all(col in self.loaded_imu_data.columns for col in acc_cols):
                 acc_data = self.loaded_imu_data[acc_cols].to_numpy()
@@ -1715,7 +1715,7 @@ class IMURecordingStudio(tk.Tk):
                 if not checkbox_vars[i].get():
                     continue
 
-                col_q = [f"IMU_{i}_q0", f"IMU_{i}_q1", f"IMU_{i}_q2", f"IMU_{i}_q3"]
+                col_q = [f"quat.x({i})", f"quat.y({i})", f"quat.z({i})", f"quat.w({i})"]
                 if all(col in self.loaded_imu_data.columns for col in col_q):
                     q = self.loaded_imu_data.loc[frame_idx, col_q].values.astype(float)
                     R = self.get_rotation_matrix_quaternions(q)

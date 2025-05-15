@@ -14,7 +14,7 @@ class FileManager:
         
         # Count existing recordings
         pattern = os.path.join(self.file_path, f"{patient_id}_{exercise_name}_*")
-        existing_files = glob.glob(pattern + ".csv")  # assume at least .csv exists per recording
+        existing_files = glob.glob(pattern + ".csv") 
         repeat_number = len(existing_files) + 1
         repeat_str = str(repeat_number).zfill(2)
 
@@ -32,21 +32,21 @@ class FileManager:
         with open(imu_csv_path, mode='w', newline='') as csvfile, open(imu_txt_path, mode='w') as txtfile:
             writer = csv.writer(csvfile)
 
-            # Create CSV header
+            # CSV header
             header = ["timestamp"]
             for i in range(6):  
-                header += [f"IMU_{i}_q0", f"IMU_{i}_q1", f"IMU_{i}_q2", f"IMU_{i}_q3"]
-                header += [f"IMU_{i}_acc_x", f"IMU_{i}_acc_y", f"IMU_{i}_acc_z"]
-                header += [f"IMU_{i}_ang_x", f"IMU_{i}_ang_y", f"IMU_{i}_ang_z"]
-                header += [f"IMU_{i}_mag_x", f"IMU_{i}_mag_y", f"IMU_{i}_mag_z"]
+                header += [f"quat.x({i})", f"quat.y({i})", f"quat.z({i})", f"quat.w({i})"]
+                header += [f"acc.x({i})", f"acc.y({i})", f"acc.z({i})"]
+                header += [f"ang.x({i})", f"ang.y({i})", f"ang.z({i})"]
+                header += [f"mag.x({i})", f"mag.y({i})", f"mag.z({i})"]
             writer.writerow(header)
 
-            # Write txt header (same as CSV but without mag fields)
+            #Txt header
             txt_header = ["timestamp"]
             for i in range(6):
-                txt_header += [f"quat{i}{j}" for j in range(4)]
-                txt_header += [f"acc{i}{j}" for j in range(3)]
-                txt_header += [f"gyr{i}{j}" for j in range(3)]
+                header += [f"quat.x({i})", f"quat.y({i})", f"quat.z({i})", f"quat.w({i})"]
+                header += [f"acc.x({i})", f"acc.y({i})", f"acc.z({i})"]
+                header += [f"ang.x({i})", f"ang.y({i})", f"ang.z({i})"]
 
             while not data_queue.empty():
                 try:
