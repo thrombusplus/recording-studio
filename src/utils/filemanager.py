@@ -55,8 +55,9 @@ class FileManager:
                     imu_acc = data.get('imu_acc')
                     imu_ang = data.get('imu_ang')
                     imu_mag = data.get('imu_mag')
-                    row = [data['timestamp']]
-                    txt_row = [data['timestamp']]
+                    unix_ts = int(data['timestamp'] * 1000)
+                    row = [unix_ts]
+                    txt_row = [unix_ts]
 
                     for pos_idx in range(6):  # 0: L Thigh, ..., 5: R Foot
                         imu_idx = imu_ordered_configuration[pos_idx] if pos_idx < len(imu_ordered_configuration) else -1

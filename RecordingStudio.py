@@ -56,6 +56,8 @@ class IMURecordingStudio(tk.Tk):
         self.data_queue = Queue() # Create a queue
         self.use_queue = False
 
+        self.frame_scroll_active = False
+
         
         # Thread explanation: #Thread[0] and Thread[1] are used by webcams to stream upon pressing the Start/Stop button
         # Thread[2] will be used when Run/Stop Streaming button is pressed to stream IMU data in the IMU vector view.
@@ -155,7 +157,8 @@ class IMURecordingStudio(tk.Tk):
         save_directory_label=ttk.Label(frame, text='Saving directory:')
         save_directory_label.grid(row=0, column=0, columnspan=1, padx=10, pady=10, sticky='w')
         # Save directory field
-        self.save_directory_field=ttk.Label(frame, text='', wraplength=150)
+        self.save_directory_var =tk.StringVar()
+        self.save_directory_field=ttk.Label(frame, textvariable =self.save_directory_var, wraplength=150)
         self.save_directory_field.grid(row=0, column=2, columnspan=1, padx=10, pady=10, sticky='w')
         # Save direcoty selection button
         save_directory_button=ttk.Button(frame, text='Save to...', command=self.update_saving_directory)
@@ -264,7 +267,7 @@ class IMURecordingStudio(tk.Tk):
         self.frame_rate_list.grid(row=0, column=0, columnspan=1)
         self.frame_rate_list.current(0)
 
-        self.connect_button = ttk.Button(self.imu_control_frame, text="Connect Sensors", command=self.conenct_IMU_sensors)
+        self.connect_button = ttk.Button(self.imu_control_frame, text="Connect Sensors", command=lambda: Thread(target=self.conenct_IMU_sensors, daemon=True).start())
         self.connect_button.grid(row=1, column=0, columnspan=2, pady=10, sticky='nsew')
         
         self.discoconnect_button = ttk.Button(self.imu_control_frame, text="Disconnect Sensors", command=self.disconnect_IMU_sensors)
@@ -335,8 +338,13 @@ class IMURecordingStudio(tk.Tk):
         self.camera_lamps.append(lamp)
 
     def update_saving_directory(self):
-        self.saving_directory = filedialog.askdirectory()
-        self.save_directory_field['text'] = self.saving_directory
+        directory = filedialog.askdirectory()
+        print(f"[DEBUG] Επιλέχθηκε φάκελος: {directory}")
+        if directory:
+            self.saving_directory = directory
+            self.save_directory_field.config(text=self.saving_directory)
+            self.selected_data_dir = FileManager(self.saving_directory)
+        
 
     def check_patient_id(self):
         if self.patients_id_field['text'] !='':
@@ -460,10 +468,14 @@ class IMURecordingStudio(tk.Tk):
         self.select_frame_scrollbar.config(command=self.on_frame_slider_change)
 
         # Create buttons to increase decrease frame
-        decrease_frame_button = ttk.Button(select_data_frame, text="◀", width=2, command=self.decrease_frame_nr_button)
+        decrease_frame_button = ttk.Button(select_data_frame, text="◀", width=2)
         decrease_frame_button.grid(row=0, column=0, padx=5, pady=5, sticky='sw')
-        increase_frame_button = ttk.Button(select_data_frame, text="▶", width=2, command=self.increase_frame_nr_button)
+        decrease_frame_button.bind("<ButtonPress>", lambda e: self.decrease_frame_nr_button())
+        decrease_frame_button.bind("<ButtonRelease>", lambda e: self.stop_frame_scroll())
+        increase_frame_button = ttk.Button(select_data_frame, text="▶", width=2)
         increase_frame_button.grid(row=0, column=3, padx=5, pady=5, sticky='se')
+        increase_frame_button.bind("<ButtonPress>", lambda e: self.increase_frame_nr_button())
+        increase_frame_button.bind("<ButtonRelease>", lambda e: self.stop_frame_scroll())
 
         self.acc_checkbox_var = tk.BooleanVar()
         self.acc_checkbox_var.set(True)
@@ -493,17 +505,17 @@ class IMURecordingStudio(tk.Tk):
         self.right_foot_checkbox_var = tk.BooleanVar()
         self.right_foot_checkbox_var.set(True)
         
-        self.select_left_thigh_tickbox = ttk.Checkbutton(select_data_frame, text="Left Thigh", onvalue=True, offvalue=False, variable=self.left_thigh_checkbox_var)
+        self.select_left_thigh_tickbox = ttk.Checkbutton(select_data_frame, text="Left Thigh", onvalue=True, offvalue=False, variable=self.left_thigh_checkbox_var,command=self.update_visualization_plots)
         self.select_left_thigh_tickbox.grid(row=4, column=0, padx=5, pady=5, columnspan=1, sticky='new')
-        self.select_left_calf_tickbox = ttk.Checkbutton(select_data_frame, text="Left Calf", onvalue=True, offvalue=False, variable=self.left_calf_checkbox_var)
+        self.select_left_calf_tickbox = ttk.Checkbutton(select_data_frame, text="Left Calf", onvalue=True, offvalue=False, variable=self.left_calf_checkbox_var,command=self.update_visualization_plots)
         self.select_left_calf_tickbox.grid(row=4, column=1, padx=5, pady=5, columnspan=1, sticky='new')
-        self.select_left_foot_tickbox = ttk.Checkbutton(select_data_frame, text="Left Foot", onvalue=True, offvalue=False, variable=self.left_foot_checkbox_var)
+        self.select_left_foot_tickbox = ttk.Checkbutton(select_data_frame, text="Left Foot", onvalue=True, offvalue=False, variable=self.left_foot_checkbox_var,command=self.update_visualization_plots)
         self.select_left_foot_tickbox.grid(row=4, column=2, padx=5, pady=5, columnspan=1, sticky='new')
-        self.select_right_thigh_tickbox = ttk.Checkbutton(select_data_frame, text="Right Thigh", onvalue=True, offvalue=False, variable=self.right_thigh_checkbox_var)
+        self.select_right_thigh_tickbox = ttk.Checkbutton(select_data_frame, text="Right Thigh", onvalue=True, offvalue=False, variable=self.right_thigh_checkbox_var,command=self.update_visualization_plots)
         self.select_right_thigh_tickbox.grid(row=5, column=0, padx=5, pady=5, columnspan=1, sticky='new')
-        self.select_right_calf_tickbox = ttk.Checkbutton(select_data_frame, text="Right Calf", onvalue=True, offvalue=False, variable=self.right_calf_checkbox_var)
+        self.select_right_calf_tickbox = ttk.Checkbutton(select_data_frame, text="Right Calf", onvalue=True, offvalue=False, variable=self.right_calf_checkbox_var,command=self.update_visualization_plots)
         self.select_right_calf_tickbox.grid(row=5, column=1, padx=5, pady=5, columnspan=1, sticky='new')
-        self.select_right_foot_tickbox = ttk.Checkbutton(select_data_frame, text="Right Foot", onvalue=True, offvalue=False, variable=self.right_foot_checkbox_var)
+        self.select_right_foot_tickbox = ttk.Checkbutton(select_data_frame, text="Right Foot", onvalue=True, offvalue=False, variable=self.right_foot_checkbox_var,command=self.update_visualization_plots)
         self.select_right_foot_tickbox.grid(row=5, column=2, padx=5, pady=5, columnspan=1, sticky='new')
         
         #Drop down with available recordings
@@ -513,7 +525,7 @@ class IMURecordingStudio(tk.Tk):
         
         self.available_recording_combobox.bind('<<ComboboxSelected>>', self.on_select_recording)
 
-        load_button = ttk.Button(select_data_frame, text="Load Data", command=self.load_recordings)
+        load_button = ttk.Button(select_data_frame, text="Load Data", command=lambda: Thread(target=self.load_recordings, daemon=True).start())
         load_button.grid(row=6, column=1, padx=5, pady=5, columnspan=1, sticky='new')
         
         #self.update_plots_button = ttk.Button(select_data_frame, text="Update Plots", command=self.update_visualization_plots)
@@ -992,6 +1004,9 @@ class IMURecordingStudio(tk.Tk):
      print("System fully reset: Ready for new streaming or recording.")
 
     def data_collection_thread(self):
+
+        frame_rate =1 /float(self.frame_rate_list.get())
+        frames =0
         while self.thread_flag[5]:
             data_entry ={}
             timestamp = time.time()
@@ -1023,7 +1038,6 @@ class IMURecordingStudio(tk.Tk):
                 print("f[Camera 1] Error during data save: {e}")
                 data_entry['frame_cam1'] = None
            
-           
             # Data from camera 2
             try :
                 if self.latest_frame_cam2 is not None:
@@ -1042,7 +1056,13 @@ class IMURecordingStudio(tk.Tk):
                 self.data_queue.put(data_entry)
                 print("Data added to queue")
 
-            time.sleep(0.050)
+            looped_elapsed_time =time.time()- timestamp
+            if looped_elapsed_time< frame_rate:
+                time.sleep(frame_rate - looped_elapsed_time)
+            frames +=1
+            print(f"Frames: {frames}")
+
+            #time.sleep(0.03)
 
     def update_camera_figures(self): # Method used in recording mode.
         while self.thread_flag[4]:
@@ -1110,7 +1130,7 @@ class IMURecordingStudio(tk.Tk):
                 self.initiate_plot()
                 self.imu.start_measuring_mode()
 
-                time.sleep(1)
+                #time.sleep(0.03)
 
                 flag_index = 2
                 self.thread_flag[flag_index] =True
@@ -1131,7 +1151,7 @@ class IMURecordingStudio(tk.Tk):
         self.ax.set_ylim3d([-3.5, 3.5])
         self.ax.set_zlim3d([-3.5, 3.5])
         self.ax.set_autoscale_on(False)
-        self.get_pose()
+        self.get_pose(self.ax , self.canvas)
         
 
     # TODO: More work is needed here
@@ -1207,13 +1227,14 @@ class IMURecordingStudio(tk.Tk):
                         [r10, r11, r12],
                         [r20, r21, r22]])
     
-    def get_pose(self):
+    def get_pose(self, ax=None, canvas =None):
         if self.imu_pose_selection.get() == 'Sitting':
             self.joints = DEFAULT_SETTINGS.skeleton_pose_sitting_joints()
         else:
             self.joints = DEFAULT_SETTINGS.skeleton_pose_laying_joints()
-        DEFAULT_SETTINGS.plot_body_parts(self.ax, self.joints)
-        self.canvas.draw() 
+        if ax is not None and canvas is not None:
+            DEFAULT_SETTINGS.plot_body_parts(self.ax, self.joints)
+            canvas.draw() 
      
     def rotate_leg_segment(self, legSegment, rotationMatrix):
           
@@ -1308,28 +1329,41 @@ class IMURecordingStudio(tk.Tk):
         self.reset_heading_flag = True
         
     # Methods for the Visualization tab
-    def decrease_frame_nr_button(self):
-        current = self.frame_nr_var.get()
-        if current > 0:
-            self.frame_nr_var.set(current - 1)
-            self.update_visualization_plots(current -1)
-        else:
-            print("Frame number is already at the minimum value")
-
-    def increase_frame_nr_button(self):
-        current = self.frame_nr_var.get()
-        max_frame = int(self.select_frame_scrollbar['to'])
-        if current < max_frame:
-            self.frame_nr_var.set(current + 1)
-            self.update_visualization_plots()
-        else:
-            print("Frame number is already at the maximum value")
-
     def on_frame_slider_change(self, value):
         current_frame = int(float(value))
         self.frame_nr_var.set(current_frame)
-        self.update_visualization_plots(current_frame)  
-    
+        self.update_visualization_plots(current_frame)
+
+    def increase_frame_nr_button(self):
+        self.frame_scroll_active = True 
+        self.auto_increase_frame()
+
+    def stop_frame_scroll(self):
+        self.frame_scroll_active = False
+
+    def auto_increase_frame(self):
+        if not self.frame_scroll_active:
+            return
+        current = self.frame_nr_var.get()
+        max_frame = int (self.select_frame_scrollbar['to'])
+        if current< max_frame :
+            self.frame_nr_var.set(current + 1)
+            self.update_visualization_plots(current +1) 
+        self.after(50, self.auto_increase_frame)
+
+    def decrease_frame_nr_button(self):
+        self.frame_scroll_active = True
+        self.auto_decrease_frame()
+
+    def auto_decrease_frame(self):
+        if not self.frame_scroll_active:
+            return
+        current = self.frame_nr_var.get()
+        if current > 0:
+            self.frame_nr_var.set(current - 1)
+            self.update_visualization_plots(current - 1)
+        self.after(50, self.auto_decrease_frame)  
+
     def load_camera_folder(self):
         folder = filedialog.askdirectory(title="Select Folder with NPY camera files")
         if not folder:
