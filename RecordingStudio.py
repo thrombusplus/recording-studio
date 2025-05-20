@@ -401,12 +401,29 @@ class IMURecordingStudio(tk.Tk):
         visualize_imus_frame = ttk.LabelFrame(self.visualization_tab, text="IMU Data Visualization")
         visualize_imus_frame.grid(row=0, column=3, rowspan=4,columnspan=8, padx=5, pady=5, sticky='nsew')
 
-        self.fig_imu, self.ax_imu = plt.subplots(figsize=(12, 6))
+        """self.fig_imu, self.ax_imu = plt.subplots(figsize=(12, 6))
         self.fig_imu.tight_layout()
         self.fig_imu.subplots_adjust(hspace=0.3)
 
         self.ax_imu.set_ylabel("Value")      
-        self.ax_imu.set_xlabel("Time")       
+        self.ax_imu.set_xlabel("Time") """
+        self.fig_imu, (self.ax_acc, self.ax_ang, self.ax_mag) = plt.subplots(
+            3, 1, figsize=(8, 6), sharex=True
+        )
+        self.fig_imu.tight_layout()
+        self.fig_imu.subplots_adjust(hspace=0.1)
+
+        self.ax_acc.set_ylabel("Acceleration (m/s²)")
+        self.ax_acc.set_title("Acceleration")
+
+        self.ax_ang.set_ylabel("Angular Velocity (rad/s)")
+        self.ax_ang.set_title("Angular Velocity")
+
+        self.ax_mag.set_ylabel("Magnetic Field (μT)")
+        self.ax_mag.set_title("Magnetic Field")
+
+        self.ax_mag.set_xlabel("Timestamp")
+   
 
         self.canvas_imu = FigureCanvasTkAgg(self.fig_imu, master=visualize_imus_frame)
         self.canvas_imu.draw()
@@ -450,15 +467,15 @@ class IMURecordingStudio(tk.Tk):
         
         # Camera 1 files
         self.camera1_npy_combobox = ttk.Combobox(select_data_frame, state="disabled", values=[])
-        self.camera1_npy_combobox.grid(row=7, column=0, columnspan=1, sticky='ew', padx=5)
+        self.camera1_npy_combobox.grid(row=7, column=0, columnspan=3, sticky='ew', padx=5)
 
         # Camera 2 files
         self.camera2_npy_combobox = ttk.Combobox(select_data_frame, state="disabled", values=[])
-        self.camera2_npy_combobox.grid(row=8, column=0, columnspan=1, sticky='ew', padx=5)
+        self.camera2_npy_combobox.grid(row=8, column=0, columnspan=3, sticky='ew', padx=5)
 
         # Button for camera files
-        load_camera_button = ttk.Button(select_data_frame, text="Load Camera Files", command=self.load_camera_folder)
-        load_camera_button.grid(row=7, column=1, columnspan=1, sticky='ew', padx=5, pady=5)
+        #load_camera_button = ttk.Button(select_data_frame, text="Load Camera Files", command=self.load_camera_folder)
+        #load_camera_button.grid(row=7, column=1, columnspan=1, sticky='ew', padx=5, pady=5)
 
         # Create the Scale bar for scrolling through frames
         self.frame_nr_var = tk.IntVar()
@@ -520,13 +537,13 @@ class IMURecordingStudio(tk.Tk):
         
         #Drop down with available recordings
         self.available_recording_combobox = ttk.Combobox(select_data_frame, state="disabled", values= 'None')
-        self.available_recording_combobox.grid(row=6, column=0,padx=5,pady=5, columnspan=1, sticky='new')
+        self.available_recording_combobox.grid(row=6, column=0,padx=5,pady=5, columnspan=2, sticky='new')
         self.available_recording_combobox.config(width=15)
         
         self.available_recording_combobox.bind('<<ComboboxSelected>>', self.on_select_recording)
 
         load_button = ttk.Button(select_data_frame, text="Load Data", command=lambda: Thread(target=self.load_recordings, daemon=True).start())
-        load_button.grid(row=6, column=1, padx=5, pady=5, columnspan=1, sticky='new')
+        load_button.grid(row=6, column=2, padx=5, pady=5, columnspan=1, sticky='new')
         
         #self.update_plots_button = ttk.Button(select_data_frame, text="Update Plots", command=self.update_visualization_plots)
         #self.update_plots_button.grid(row=6, column=2, padx=10, pady=10, columnspan=1, sticky='new')
@@ -903,7 +920,7 @@ class IMURecordingStudio(tk.Tk):
 
 
     def reset_heading_and_countdown(self, seconds_left):
-      if seconds_left == 5:  
+      if seconds_left == 3:  
         try:
             self.imu.reset_heading()
             self.initiate_plot()
@@ -914,9 +931,8 @@ class IMURecordingStudio(tk.Tk):
 
       if seconds_left > 0:
         print(f"Recording starts in: {seconds_left}...")
-        self.after(1000, lambda: self.reset_heading_and_countdown(seconds_left - 1))
+        self.after(2000, lambda: self.reset_heading_and_countdown(seconds_left - 1))
       else:
-        
         self.start_recording_proper()
 
     def start_recording_proper(self):
@@ -1004,65 +1020,65 @@ class IMURecordingStudio(tk.Tk):
      print("System fully reset: Ready for new streaming or recording.")
 
     def data_collection_thread(self):
+        
+        frame_rate = 1 / float(self.frame_rate_list.get())
+        frames = 0
+        next_time = time.perf_counter()
 
-        frame_rate =1 /float(self.frame_rate_list.get())
-        frames =0
         while self.thread_flag[5]:
-            data_entry ={}
+            start = time.perf_counter()
+
+            data_entry = {}
             timestamp = time.time()
 
-            #Data from sensors
+            # Data from sensors
             try:
                 if not self.imu_streaming:
-                    print(("IMU not streaming"))
-                    data_entry ['imu']= None
+                    print("IMU not streaming")
+                    data_entry['imu'] = None
                 else:
-                   self.imu.get_measurments()
-                   data_entry['imu']= self.imu.quat_data.copy()
-                   data_entry['imu_acc'] = self.imu.acc_data.copy()
-                   data_entry['imu_ang'] = self.imu.gyr_data.copy()
-                   data_entry['imu_mag'] = self.imu.mag_data.copy()
-                   data_entry['imu_ts'] = self.imu.sensor_timestamp.copy() #Sensor Timestamp
-
+                    self.imu.get_measurments()
+                    data_entry['imu'] = self.imu.quat_data.copy()
+                    data_entry['imu_acc'] = self.imu.acc_data.copy()
+                    data_entry['imu_ang'] = self.imu.gyr_data.copy()
+                    data_entry['imu_mag'] = self.imu.mag_data.copy()
+                    #data_entry['imu_ts'] = self.imu.sensor_timestamp.copy()
             except Exception as e:
                 print(f"[IMU] Error while collecting data: {e}")
                 data_entry['imu'] = None
 
-            #Data from camera 1
-            try: 
+            # Camera 1
+            try:
                 if self.latest_frame_cam1 is not None:
                     data_entry['frame_cam1'] = self.latest_frame_cam1.copy()
                 else:
-                    data_entry['frame_cam1']= None
+                    data_entry['frame_cam1'] = None
             except Exception as e:
-                print("f[Camera 1] Error during data save: {e}")
+                print(f"[Camera 1] Error: {e}")
                 data_entry['frame_cam1'] = None
-           
-            # Data from camera 2
-            try :
+
+            # Camera 2
+            try:
                 if self.latest_frame_cam2 is not None:
-                    data_entry['frame_cam2'] =  self.latest_frame_cam2.copy()
+                    data_entry['frame_cam2'] = self.latest_frame_cam2.copy()
                 else:
                     data_entry['frame_cam2'] = None
             except Exception as e:
-                print(f"[Camera 2] Error during data save: {e}")
+                print(f"[Camera 2] Error: {e}")
                 data_entry['frame_cam2'] = None
-                
+
             data_entry['timestamp'] = timestamp
-            
-            if self.recording:    
-            #save data
-              if self.use_queue:
+
+            if self.recording and self.use_queue:
                 self.data_queue.put(data_entry)
                 print("Data added to queue")
 
-            looped_elapsed_time =time.time()- timestamp
-            if looped_elapsed_time< frame_rate:
-                time.sleep(frame_rate - looped_elapsed_time)
-            frames +=1
+            frames += 1
             print(f"Frames: {frames}")
 
-            #time.sleep(0.03)
+            next_time += frame_rate
+            sleep_duration = max(0, next_time - time.perf_counter())
+            time.sleep(sleep_duration)
 
     def update_camera_figures(self): # Method used in recording mode.
         while self.thread_flag[4]:
@@ -1349,7 +1365,7 @@ class IMURecordingStudio(tk.Tk):
         if current< max_frame :
             self.frame_nr_var.set(current + 1)
             self.update_visualization_plots(current +1) 
-        self.after(50, self.auto_increase_frame)
+        self.after(10, self.auto_increase_frame)
 
     def decrease_frame_nr_button(self):
         self.frame_scroll_active = True
@@ -1362,7 +1378,7 @@ class IMURecordingStudio(tk.Tk):
         if current > 0:
             self.frame_nr_var.set(current - 1)
             self.update_visualization_plots(current - 1)
-        self.after(50, self.auto_decrease_frame)  
+        self.after(10, self.auto_decrease_frame)  
 
     def load_camera_folder(self):
         folder = filedialog.askdirectory(title="Select Folder with NPY camera files")
@@ -1565,20 +1581,45 @@ class IMURecordingStudio(tk.Tk):
             else:
                 imu_tickbox_map[imu_index].set(False)
 
-
         # Load camera frames
-        if os.path.exists(cam1_path):
+        camera1_exists = os.path.exists(cam1_path)
+        camera2_exists = os.path.exists(cam2_path)
+
+        cam1_file = os.path.basename(cam1_path)
+        cam2_file = os.path.basename(cam2_path)
+
+        if camera1_exists:
             self.loaded_camera1_frames = np.load(cam1_path)
             print(f"Loaded camera1 frames from {cam1_path}")
+            self.camera1_npy_combobox['values'] = [cam1_file]
+            self.camera1_npy_combobox['state'] = 'readonly'
+            self.camera1_npy_combobox.set(cam1_file)
+            self.camera1_npy_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_npy(1))
+            if not hasattr(self, 'camera_npy_files'):
+                self.camera_npy_files = {}
+            self.camera_npy_files[cam1_file] = cam1_path
         else:
             self.loaded_camera1_frames = None
+            self.camera1_npy_combobox['values'] = []
+            self.camera1_npy_combobox.set('')
+            self.camera1_npy_combobox['state'] = 'disabled'
             print(f"Camera1 file not found: {cam1_path}")
 
-        if os.path.exists(cam2_path):
+        if camera2_exists:
             self.loaded_camera2_frames = np.load(cam2_path)
             print(f"Loaded camera2 frames from {cam2_path}")
+            self.camera2_npy_combobox['values'] = [cam2_file]
+            self.camera2_npy_combobox['state'] = 'readonly'
+            self.camera2_npy_combobox.set(cam2_file)
+            self.camera2_npy_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_npy(2))
+            if not hasattr(self, 'camera_npy_files'):
+                self.camera_npy_files = {}
+            self.camera_npy_files[cam2_file] = cam2_path
         else:
             self.loaded_camera2_frames = None
+            self.camera2_npy_combobox['values'] = []
+            self.camera2_npy_combobox.set('')
+            self.camera2_npy_combobox['state'] = 'disabled'
             print(f"Camera2 file not found: {cam2_path}")
 
         # Update slider for IMU frames
@@ -1597,109 +1638,140 @@ class IMURecordingStudio(tk.Tk):
      self.setup_visualization_callbacks()
      self.update_visualization_plots()
 
+
     def setup_visualization_callbacks(self):
         self.frame_nr_var.trace_add('write', lambda *args: self.update_visualization_plots())
 
     def update_visualization_plots(self, frame_idx=None):
-        try:
-            num_frames = len(self.loaded_acc_data[0]) if self.loaded_acc_data else 0
-            if num_frames == 0:
-                print("[Visualization Update] No data loaded.")
-                return
+     try:
+        num_frames = len(self.loaded_acc_data[0]) if self.loaded_acc_data else 0
+        if num_frames == 0:
+            print("[Visualization Update] No data loaded.")
+            return
 
-            idx = self.frame_nr_var.get() if frame_idx is None else frame_idx
-            if idx < 0 or idx >= num_frames:
-                print("[Visualization Update] Index out of bounds.")
-                return
+        idx = self.frame_nr_var.get() if frame_idx is None else frame_idx
+        if idx < 0 or idx >= num_frames:
+            print("[Visualization Update] Index out of bounds.")
+            return
 
-            time_axis = self.timestamps
-            self.ax_imu.clear()
-            active = False
+        time_axis = self.timestamps
 
-            imu_tickbox_map = {
-                0: self.left_thigh_checkbox_var,
-                1: self.left_calf_checkbox_var,
-                2: self.left_foot_checkbox_var,
-                3: self.right_thigh_checkbox_var,
-                4: self.right_calf_checkbox_var,
-                5: self.right_foot_checkbox_var
-            }
+        # Ποια tickboxes είναι ενεργά
+        active_flags = {
+            "acc": self.acc_checkbox_var.get(),
+            "ang": self.ang_checkbox_var.get(),
+            "mag": self.mag_checkbox_var.get()
+        }
 
-            imu_labels = ['L Thigh', 'L Calf', 'L Foot','R Thigh', 'R Calf', 'R Foot']
+        active_keys = [k for k, v in active_flags.items() if v]
+        n = len(active_keys)
 
-            for i in range(len(self.loaded_acc_data)):
-                if i not in imu_tickbox_map or not imu_tickbox_map[i].get():
-                    continue
+        if n == 0:
+            print("No visualization types selected.")
+            return
 
-                imu_label = imu_labels[i]
+        # Δημιουργία figure και αξόνων εκ νέου
+        self.fig_imu.clf()
+        axes = self.fig_imu.subplots(n, 1, sharex=True) if n > 1 else [self.fig_imu.add_subplot(111)]
+        self.fig_imu.tight_layout()
+        self.fig_imu.subplots_adjust(hspace=0.4)
 
-                if self.acc_checkbox_var.get() and not np.isnan(self.loaded_acc_data[i]).all():
-                    acc_x = [v[0] for v in self.loaded_acc_data[i]]
-                    acc_y = [v[1] for v in self.loaded_acc_data[i]]
-                    acc_z = [v[2] for v in self.loaded_acc_data[i]]
-                    self.ax_imu.plot(time_axis, acc_x, label=f'{imu_label} Acc X')
-                    self.ax_imu.plot(time_axis, acc_y, label=f'{imu_label} Acc Y')
-                    self.ax_imu.plot(time_axis, acc_z, label=f'{imu_label} Acc Z')
-                    self.ax_imu.scatter(self.timestamps[idx], acc_x[idx], color='blue', s=40, zorder=5)
-                    self.ax_imu.scatter(self.timestamps[idx], acc_y[idx], color='cyan', s=40, zorder=5)
-                    self.ax_imu.scatter(self.timestamps[idx], acc_z[idx], color='navy', s=40, zorder=5)
-                    #self.ax_imu.set_ylabel('m/s²')
-                    #self.ax_imu.set_title('Acceleration')
-                    active = True
+        # Χάρτης αξόνων
+        ax_map = dict(zip(active_keys, axes))
 
-                if self.ang_checkbox_var.get() and not np.isnan(self.loaded_ang_data[i]).all():
-                    ang_x = [v[0] for v in self.loaded_ang_data[i]]
-                    ang_y = [v[1] for v in self.loaded_ang_data[i]]
-                    ang_z = [v[2] for v in self.loaded_ang_data[i]]
-                    self.ax_imu.plot(time_axis, ang_x, label=f'{imu_label} Ang X')
-                    self.ax_imu.plot(time_axis, ang_y, label=f'{imu_label} Ang Y')
-                    self.ax_imu.plot(time_axis, ang_z, label=f'{imu_label} Ang Z')
-                    self.ax_imu.scatter(self.timestamps[idx], ang_x[idx], color='orange', s=40, zorder=5)
-                    self.ax_imu.scatter(self.timestamps[idx], ang_y[idx], color='gold', s=40, zorder=5)
-                    self.ax_imu.scatter(self.timestamps[idx], ang_z[idx], color='red', s=40, zorder=5)
-                    #self.ax_imu.set_ylabel('rad/s')
-                    #self.ax_imu.set_title('Angular Velocity')
-                    active = True
+        imu_tickbox_map = {
+            0: self.left_thigh_checkbox_var,
+            1: self.left_calf_checkbox_var,
+            2: self.left_foot_checkbox_var,
+            3: self.right_thigh_checkbox_var,
+            4: self.right_calf_checkbox_var,
+            5: self.right_foot_checkbox_var
+        }
 
-                if self.mag_checkbox_var.get() and not np.isnan(self.loaded_mag_data[i]).all():
-                    mag_x = [v[0] for v in self.loaded_mag_data[i]]
-                    mag_y = [v[1] for v in self.loaded_mag_data[i]]
-                    mag_z = [v[2] for v in self.loaded_mag_data[i]]
-                    self.ax_imu.plot(time_axis, mag_x, label=f'{imu_label} Mag X')
-                    self.ax_imu.plot(time_axis, mag_y, label=f'{imu_label} Mag Y')
-                    self.ax_imu.plot(time_axis, mag_z, label=f'{imu_label} Mag Z')
-                    self.ax_imu.scatter(self.timestamps[idx], mag_x[idx], color='green', s=40, zorder=5)
-                    self.ax_imu.scatter(self.timestamps[idx], mag_y[idx], color='lime', s=40, zorder=5)
-                    self.ax_imu.scatter(self.timestamps[idx], mag_z[idx], color='darkgreen', s=40, zorder=5)
-                    #self.ax_imu.set_ylabel('μT')
-                    #self.ax_imu.set_title('Magnetic Field')
-                    active = True
+        imu_labels = ['L Thigh', 'L Calf', 'L Foot', 'R Thigh', 'R Calf', 'R Foot']
 
-            if not active:
-                self.ax_imu.text(0.5, 0.5, "No data selected", ha='center', va='center')
+        for i in range(6):
+            if not imu_tickbox_map[i].get():
+                continue
 
-            self.ax_imu.set_xlabel('Timestamp')
-            self.ax_imu.grid(True)
-            self.ax_imu.legend()
-            self.fig_imu.tight_layout()
-            self.ax_imu.set_autoscale_on(True)
-            self.ax_imu.set_navigate(True)
-            self.ax_imu.xaxis.set_major_locator(MaxNLocator(7))
+            label = imu_labels[i]
 
-            for label in self.ax_imu.get_xticklabels():
-                label.set_rotation(0)
-                label.set_horizontalalignment('center')
+            if "acc" in ax_map and not np.isnan(self.loaded_acc_data[i]).all():
+                acc = self.loaded_acc_data[i]
+                ax = ax_map["acc"]
+                ax.plot(time_axis, acc[:, 0], label=f'{label} Acc X')
+                ax.plot(time_axis, acc[:, 1], label=f'{label} Acc Y')
+                ax.plot(time_axis, acc[:, 2], label=f'{label} Acc Z')
+                ax.scatter(time_axis[idx], acc[idx, 0], color='blue', s=40)
+                ax.scatter(time_axis[idx], acc[idx, 1], color='cyan', s=40)
+                ax.scatter(time_axis[idx], acc[idx, 2], color='navy', s=40)
 
-            self.canvas_imu.draw()
+            if "ang" in ax_map and not np.isnan(self.loaded_ang_data[i]).all():
+                ang = self.loaded_ang_data[i]
+                ax = ax_map["ang"]
+                ax.plot(time_axis, ang[:, 0], label=f'{label} Ang X')
+                ax.plot(time_axis, ang[:, 1], label=f'{label} Ang Y')
+                ax.plot(time_axis, ang[:, 2], label=f'{label} Ang Z')
+                ax.scatter(time_axis[idx], ang[idx, 0], color='orange', s=40)
+                ax.scatter(time_axis[idx], ang[idx, 1], color='gold', s=40)
+                ax.scatter(time_axis[idx], ang[idx, 2], color='red', s=40)
 
-            # Update the Pose Viewer
-            self.update_pose_viewer(idx)
+            if "mag" in ax_map and not np.isnan(self.loaded_mag_data[i]).all():
+                mag = self.loaded_mag_data[i]
+                ax = ax_map["mag"]
+                ax.plot(time_axis, mag[:, 0], label=f'{label} Mag X')
+                ax.plot(time_axis, mag[:, 1], label=f'{label} Mag Y')
+                ax.plot(time_axis, mag[:, 2], label=f'{label} Mag Z')
+                ax.scatter(time_axis[idx], mag[idx, 0], color='green', s=40)
+                ax.scatter(time_axis[idx], mag[idx, 1], color='lime', s=40)
+                ax.scatter(time_axis[idx], mag[idx, 2], color='darkgreen', s=40)
 
-            # Update camera view
-            self.update_camera_views(idx)
+        # Τίτλοι και axis info
+        if "acc" in ax_map:
+            ax = ax_map["acc"]
+            ax.set_ylabel("m/s²")
+            #ax.set_title("Acceleration")
+            ax.grid(True)
+            ax.legend()
+            ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
+        if "ang" in ax_map:
+            ax = ax_map["ang"]
+            ax.set_ylabel("rad/s")
+            #ax.set_title("Angular Velocity")
+            ax.grid(True)
+            ax.legend()
+            ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
+        if "mag" in ax_map:
+            ax = ax_map["mag"]
+            ax.set_ylabel("μT")
+            #ax.set_title("Magnetic Field")
+            ax.set_xlabel("Timestamp")
+            ax.grid(True)
+            ax.legend()
+            ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
 
-        except Exception as e:
-            print(f"[Visualization Update] Error: {e}")
+        #Title
+        title_parts = []
+        if self.acc_checkbox_var.get():
+            title_parts.append("Acceleration")
+        if self.ang_checkbox_var.get():
+            title_parts.append("Angular Velocity")
+        if self.mag_checkbox_var.get():
+            title_parts.append("Magnetic Field")
+
+        overall_title = " | ".join(title_parts)
+        self.fig_imu.suptitle(overall_title, fontsize=12)
+        
+        self.fig_imu.suptitle(overall_title, fontsize=10, fontweight='bold')
+        self.fig_imu.subplots_adjust(hspace=0.1, top=0.93)
+        
+        self.canvas_imu.draw()
+
+        self.update_pose_viewer(idx)
+        self.update_camera_views(idx)
+
+     except Exception as e:
+        print(f"[Visualization Update] Error: {e}")
 
     def update_camera_views(self, frame_idx):
      try:
