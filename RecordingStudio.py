@@ -1043,6 +1043,9 @@ class IMURecordingStudio(tk.Tk):
                     data_entry['imu_ang'] = self.imu.gyr_data.copy()
                     data_entry['imu_mag'] = self.imu.mag_data.copy()
                     #data_entry['imu_ts'] = self.imu.sensor_timestamp.copy()
+                    
+                    self.latest_quat_data = self.imu.quat_data.copy()
+
             except Exception as e:
                 print(f"[IMU] Error while collecting data: {e}")
                 data_entry['imu'] = None
@@ -1176,14 +1179,18 @@ class IMURecordingStudio(tk.Tk):
 
       current_thread_index = 3 if self.recording else 2
 
-      for _ in range(5):
-        self.imu.get_measurments()
-        time.sleep(0.01)
-
       while self.thread_flag[current_thread_index]:
         try:
-            self.imu.get_measurments()
-            quaternions = self.imu.quat_data
+            if self.recording:
+                if not hasattr(self, 'latest_quat_data'):
+                    print("[IMU Plot] No quaternion data available yet")
+                    #time.sleep(0.05)
+                    continue
+                quaternions = self.latest_quat_data
+                
+            else:
+                self.imu.get_measurments()
+                quaternions = self.imu.quat_data
 
             for legSegment in range(len(self.imu_comboboxes)):
                 deviceIdx = self.imu_ordered_configuration[legSegment]
