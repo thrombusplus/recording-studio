@@ -401,34 +401,11 @@ class IMURecordingStudio(tk.Tk):
         visualize_imus_frame = ttk.LabelFrame(self.visualization_tab, text="IMU Data Visualization")
         visualize_imus_frame.grid(row=0, column=3, rowspan=4,columnspan=8, padx=5, pady=5, sticky='nsew')
 
-        """self.fig_imu, self.ax_imu = plt.subplots(figsize=(12, 6))
-        self.fig_imu.tight_layout()
-        self.fig_imu.subplots_adjust(hspace=0.3)
-
-        self.ax_imu.set_ylabel("Value")      
-        self.ax_imu.set_xlabel("Time") """
-        self.fig_imu, (self.ax_acc, self.ax_ang, self.ax_mag) = plt.subplots(
-            3, 1, figsize=(8, 6), sharex=True
-        )
-        self.fig_imu.tight_layout()
-        self.fig_imu.subplots_adjust(hspace=0.1)
-
-        self.ax_acc.set_ylabel("Acceleration (m/s²)")
-        self.ax_acc.set_title("Acceleration")
-
-        self.ax_ang.set_ylabel("Angular Velocity (rad/s)")
-        self.ax_ang.set_title("Angular Velocity")
-
-        self.ax_mag.set_ylabel("Magnetic Field (μT)")
-        self.ax_mag.set_title("Magnetic Field")
-
-        self.ax_mag.set_xlabel("Timestamp")
-   
-
+        self.fig_imu = plt.Figure(figsize=(8, 6))
         self.canvas_imu = FigureCanvasTkAgg(self.fig_imu, master=visualize_imus_frame)
         self.canvas_imu.draw()
         self.canvas_imu.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
-        
+
         # Add toolbar
         self.toolbar = NavigationToolbar2Tk(self.canvas_imu,visualize_imus_frame)
         self.toolbar.update()
@@ -501,11 +478,11 @@ class IMURecordingStudio(tk.Tk):
         self.mag_checkbox_var = tk.BooleanVar()
         self.mag_checkbox_var.set(False)
 
-        self.select_acceleration_tickbox = ttk.Checkbutton(select_data_frame, text="Acceleration", onvalue=True, offvalue=False, variable=self.acc_checkbox_var,command=self.update_visualization_plots)
+        self.select_acceleration_tickbox = ttk.Checkbutton(select_data_frame, text="Acceleration", onvalue=True, offvalue=False, variable=self.acc_checkbox_var,command=self.trigger_update)
         self.select_acceleration_tickbox.grid(row=2, column=0, padx=5, pady=5, columnspan=1, sticky='nsew')
-        self.select_angular_velocity_tickbox = ttk.Checkbutton(select_data_frame, text="Angular Velocity", onvalue=True, offvalue=False, variable=self.ang_checkbox_var,command=self.update_visualization_plots)
+        self.select_angular_velocity_tickbox = ttk.Checkbutton(select_data_frame, text="Angular Velocity", onvalue=True, offvalue=False, variable=self.ang_checkbox_var,command=self.trigger_update)
         self.select_angular_velocity_tickbox.grid(row=2, column=1, padx=5, pady=5, columnspan=1, sticky='nsew')
-        self.select_magnetic_filed_tickbox = ttk.Checkbutton(select_data_frame, text="Magnetic Field", onvalue=True, offvalue=False, variable = self.mag_checkbox_var,command=self.update_visualization_plots)
+        self.select_magnetic_filed_tickbox = ttk.Checkbutton(select_data_frame, text="Magnetic Field", onvalue=True, offvalue=False, variable = self.mag_checkbox_var,command=self.trigger_update)
         self.select_magnetic_filed_tickbox.grid(row=2, column=2, padx=5, pady=5, columnspan=1,sticky='nsew')
 
         ttk.Label(select_data_frame, text="Plot Leg Segment:").grid(row=3, column=0, padx=10, pady=10, columnspan=1, sticky='nsew')    
@@ -522,17 +499,17 @@ class IMURecordingStudio(tk.Tk):
         self.right_foot_checkbox_var = tk.BooleanVar()
         self.right_foot_checkbox_var.set(True)
         
-        self.select_left_thigh_tickbox = ttk.Checkbutton(select_data_frame, text="Left Thigh", onvalue=True, offvalue=False, variable=self.left_thigh_checkbox_var,command=self.update_visualization_plots)
+        self.select_left_thigh_tickbox = ttk.Checkbutton(select_data_frame, text="Left Thigh", onvalue=True, offvalue=False, variable=self.left_thigh_checkbox_var,command=self.trigger_update)
         self.select_left_thigh_tickbox.grid(row=4, column=0, padx=5, pady=5, columnspan=1, sticky='new')
-        self.select_left_calf_tickbox = ttk.Checkbutton(select_data_frame, text="Left Calf", onvalue=True, offvalue=False, variable=self.left_calf_checkbox_var,command=self.update_visualization_plots)
+        self.select_left_calf_tickbox = ttk.Checkbutton(select_data_frame, text="Left Calf", onvalue=True, offvalue=False, variable=self.left_calf_checkbox_var,command=self.trigger_update)
         self.select_left_calf_tickbox.grid(row=4, column=1, padx=5, pady=5, columnspan=1, sticky='new')
-        self.select_left_foot_tickbox = ttk.Checkbutton(select_data_frame, text="Left Foot", onvalue=True, offvalue=False, variable=self.left_foot_checkbox_var,command=self.update_visualization_plots)
+        self.select_left_foot_tickbox = ttk.Checkbutton(select_data_frame, text="Left Foot", onvalue=True, offvalue=False, variable=self.left_foot_checkbox_var,command=self.trigger_update)
         self.select_left_foot_tickbox.grid(row=4, column=2, padx=5, pady=5, columnspan=1, sticky='new')
-        self.select_right_thigh_tickbox = ttk.Checkbutton(select_data_frame, text="Right Thigh", onvalue=True, offvalue=False, variable=self.right_thigh_checkbox_var,command=self.update_visualization_plots)
+        self.select_right_thigh_tickbox = ttk.Checkbutton(select_data_frame, text="Right Thigh", onvalue=True, offvalue=False, variable=self.right_thigh_checkbox_var,command=self.trigger_update)
         self.select_right_thigh_tickbox.grid(row=5, column=0, padx=5, pady=5, columnspan=1, sticky='new')
-        self.select_right_calf_tickbox = ttk.Checkbutton(select_data_frame, text="Right Calf", onvalue=True, offvalue=False, variable=self.right_calf_checkbox_var,command=self.update_visualization_plots)
+        self.select_right_calf_tickbox = ttk.Checkbutton(select_data_frame, text="Right Calf", onvalue=True, offvalue=False, variable=self.right_calf_checkbox_var,command=self.trigger_update)
         self.select_right_calf_tickbox.grid(row=5, column=1, padx=5, pady=5, columnspan=1, sticky='new')
-        self.select_right_foot_tickbox = ttk.Checkbutton(select_data_frame, text="Right Foot", onvalue=True, offvalue=False, variable=self.right_foot_checkbox_var,command=self.update_visualization_plots)
+        self.select_right_foot_tickbox = ttk.Checkbutton(select_data_frame, text="Right Foot", onvalue=True, offvalue=False, variable=self.right_foot_checkbox_var,command=self.trigger_update)
         self.select_right_foot_tickbox.grid(row=5, column=2, padx=5, pady=5, columnspan=1, sticky='new')
         
         #Drop down with available recordings
@@ -1369,10 +1346,9 @@ class IMURecordingStudio(tk.Tk):
             return
         current = self.frame_nr_var.get()
         max_frame = int (self.select_frame_scrollbar['to'])
-        if current< max_frame :
-            self.frame_nr_var.set(current + 1)
-            self.update_visualization_plots(current +1) 
-        self.after(10, self.auto_increase_frame)
+        if current < max_frame:
+            self.frame_nr_var.set(current + 1)  
+            self.update_visualization_plots(current + 1)  
 
     def decrease_frame_nr_button(self):
         self.frame_scroll_active = True
@@ -1505,7 +1481,7 @@ class IMURecordingStudio(tk.Tk):
             col_idx += 13  # move to next IMU
 
         self.select_frame_scrollbar['to'] = num_frames - 1
-        self.setup_visualization_callbacks()
+        self.data_changed = True
 
         print(f"Loaded {num_frames} frames, {num_imus} IMUs, for visualization.")
 
@@ -1634,7 +1610,8 @@ class IMURecordingStudio(tk.Tk):
             num_frames = len(self.loaded_imu_data)
             self.select_frame_scrollbar.config(to=num_frames - 1)
             print(f"Updated slider to {num_frames} IMU frames.")
-
+        
+        self.data_changed = True
         self.update_visualization_plots()
 
         print("Finished loading and visualizing data.")
@@ -1642,12 +1619,9 @@ class IMURecordingStudio(tk.Tk):
      except Exception as e:
         print(f"[On Select Recording] Error: {e}")
 
-     self.setup_visualization_callbacks()
-     self.update_visualization_plots()
-
-
-    def setup_visualization_callbacks(self):
-        self.frame_nr_var.trace_add('write', lambda *args: self.update_visualization_plots())
+    def trigger_update(self):
+        self.data_changed = True
+        self.update_visualization_plots(self.frame_nr_var.get())
 
     def update_visualization_plots(self, frame_idx=None):
      try:
@@ -1677,14 +1651,20 @@ class IMURecordingStudio(tk.Tk):
             print("No visualization types selected.")
             return
 
-        # Δημιουργία figure και αξόνων εκ νέου
-        self.fig_imu.clf()
-        axes = self.fig_imu.subplots(n, 1, sharex=True) if n > 1 else [self.fig_imu.add_subplot(111)]
-        self.fig_imu.tight_layout()
-        self.fig_imu.subplots_adjust(hspace=0.4)
+        if self.data_changed:
+            self.fig_imu.clf()
+            axes = self.fig_imu.subplots(n, 1, sharex=True) if n > 1 else [self.fig_imu.add_subplot(111)]
+            self.fig_imu.tight_layout()
+            self.fig_imu.subplots_adjust(hspace=0.4)
+            self.ax_map = dict(zip(active_keys, axes))
 
-        # Χάρτης αξόνων
-        ax_map = dict(zip(active_keys, axes))
+        ax_map = self.ax_map  
+
+        # Clear scatter points from each axis
+        for key in active_keys:
+            ax = ax_map[key]
+            for coll in list(ax.collections):
+                coll.remove()
 
         imu_tickbox_map = {
             0: self.left_thigh_checkbox_var,
@@ -1706,9 +1686,10 @@ class IMURecordingStudio(tk.Tk):
             if "acc" in ax_map and not np.isnan(self.loaded_acc_data[i]).all():
                 acc = self.loaded_acc_data[i]
                 ax = ax_map["acc"]
-                ax.plot(time_axis, acc[:, 0], label=f'{label} Acc X')
-                ax.plot(time_axis, acc[:, 1], label=f'{label} Acc Y')
-                ax.plot(time_axis, acc[:, 2], label=f'{label} Acc Z')
+                if self.data_changed:
+                    ax.plot(time_axis, acc[:, 0], label=f'{label} Acc X')
+                    ax.plot(time_axis, acc[:, 1], label=f'{label} Acc Y')
+                    ax.plot(time_axis, acc[:, 2], label=f'{label} Acc Z')
                 ax.scatter(time_axis[idx], acc[idx, 0], color='blue', s=40)
                 ax.scatter(time_axis[idx], acc[idx, 1], color='cyan', s=40)
                 ax.scatter(time_axis[idx], acc[idx, 2], color='navy', s=40)
@@ -1716,9 +1697,10 @@ class IMURecordingStudio(tk.Tk):
             if "ang" in ax_map and not np.isnan(self.loaded_ang_data[i]).all():
                 ang = self.loaded_ang_data[i]
                 ax = ax_map["ang"]
-                ax.plot(time_axis, ang[:, 0], label=f'{label} Ang X')
-                ax.plot(time_axis, ang[:, 1], label=f'{label} Ang Y')
-                ax.plot(time_axis, ang[:, 2], label=f'{label} Ang Z')
+                if self.data_changed:
+                    ax.plot(time_axis, ang[:, 0], label=f'{label} Ang X')
+                    ax.plot(time_axis, ang[:, 1], label=f'{label} Ang Y')
+                    ax.plot(time_axis, ang[:, 2], label=f'{label} Ang Z')
                 ax.scatter(time_axis[idx], ang[idx, 0], color='orange', s=40)
                 ax.scatter(time_axis[idx], ang[idx, 1], color='gold', s=40)
                 ax.scatter(time_axis[idx], ang[idx, 2], color='red', s=40)
@@ -1726,9 +1708,10 @@ class IMURecordingStudio(tk.Tk):
             if "mag" in ax_map and not np.isnan(self.loaded_mag_data[i]).all():
                 mag = self.loaded_mag_data[i]
                 ax = ax_map["mag"]
-                ax.plot(time_axis, mag[:, 0], label=f'{label} Mag X')
-                ax.plot(time_axis, mag[:, 1], label=f'{label} Mag Y')
-                ax.plot(time_axis, mag[:, 2], label=f'{label} Mag Z')
+                if self.data_changed:
+                    ax.plot(time_axis, mag[:, 0], label=f'{label} Mag X')
+                    ax.plot(time_axis, mag[:, 1], label=f'{label} Mag Y')
+                    ax.plot(time_axis, mag[:, 2], label=f'{label} Mag Z')
                 ax.scatter(time_axis[idx], mag[idx, 0], color='green', s=40)
                 ax.scatter(time_axis[idx], mag[idx, 1], color='lime', s=40)
                 ax.scatter(time_axis[idx], mag[idx, 2], color='darkgreen', s=40)
@@ -1776,6 +1759,8 @@ class IMURecordingStudio(tk.Tk):
 
         self.update_pose_viewer(idx)
         self.update_camera_views(idx)
+
+        self.data_changed =False
 
      except Exception as e:
         print(f"[Visualization Update] Error: {e}")
