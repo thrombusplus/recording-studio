@@ -7,6 +7,8 @@ import csv
 import time
 
 class IMUManager:
+    xdpcHandler = XdpcHandler()
+
     def __init__(self, parms): # connect sensors
         self.frame_rate = parms    
         self.devices = self.conenct_IMU_sensors()
@@ -72,20 +74,37 @@ class IMUManager:
         xdpcHandler = self.devices
         manager = xdpcHandler.manager()
         deviceList = xdpcHandler.connectedDots()
-        print(f"\nStarting sync for connected devices... Root node: {deviceList[-1].bluetoothAddress()}")
-        print("This takes at least 14 seconds")
-        if not manager.startSync(deviceList[-1].bluetoothAddress()):
-            print(f"Could not start sync. Reason: {manager.lastResultText()}")
-            if manager.lastResult() != movelladot_pc_sdk.XRV_SYNC_COULD_NOT_START:
-                print("Sync could not be started. Aborting.")
-                xdpcHandler.cleanup()
 
-            # If (some) devices are already in sync mode.Disable sync on all devices first.
+        print(f"[SYNC] Preparing to sync {len(deviceList)} devices.")
+    
+        # Exit from measurement mode
+        print("[SYNC] Stopping measurement on all devices...")
+        for device in deviceList:
+            try:
+                device.stopMeasurement()
+                print(f"[SYNC] Stopped measurement on {device.bluetoothAddress()}")
+            except Exception as e:
+                print(f"[SYNC] Could not stop measurement on {device.bluetoothAddress()}: {e}")
+
+        # Stop syncing
+        print("[SYNC] Forcing stopSync...")
+        try:
             manager.stopSync()
-            print(f"Retrying start sync after stopping sync")
-            if not manager.startSync(deviceList[-1].bluetoothAddress()):
-                print(f"Could not start sync. Reason: {manager.lastResultText()}. Aborting.")
-                xdpcHandler.cleanup()
+        except Exception as e:
+            print(f"[SYNC] stopSync error (ignored): {e}")
+
+        time.sleep(1)  # give SDK time to reset states
+
+        # Statr syncing
+        print(f"[SYNC] Starting sync... Root node: {deviceList[-1].bluetoothAddress()}")
+        success = manager.startSync(deviceList[-1].bluetoothAddress())
+
+        if success:
+            print("[SYNC] Devices synchronized successfully.")
+        else:
+            print(f"[SYNC] Could not start sync. Reason: {manager.lastResultText()}")
+    
+        return success
 
     def start_measuring_mode(self):
         xdpcHandler = self.devices
@@ -132,8 +151,12 @@ class IMUManager:
             for device in self.devices.connectedDots(): #depending on the speed of the for loop, maybe this can take place in parallel 
                 # Retrieve a packet
                 packet = self.devices.getNextPacket(device.portInfo().bluetoothAddress())
-                self.sensor_timestamp[dev] = movelladot_pc_sdk.XsTimeStamp_nowMs()
-                        
+            
+                if packet.containsSampleTimeFine():
+                    self.sensor_timestamp[dev] = packet.sampleTimeFine()
+                else:
+                    self.sensor_timestamp[dev] = np.nan
+      
                 if packet.containsCalibratedData():
                     data = packet.calibratedData()
                     self.acc_data[dev, :] = data.m_acc

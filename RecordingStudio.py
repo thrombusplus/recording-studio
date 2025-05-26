@@ -273,8 +273,11 @@ class IMURecordingStudio(tk.Tk):
         self.discoconnect_button = ttk.Button(self.imu_control_frame, text="Disconnect Sensors", command=self.disconnect_IMU_sensors)
         self.discoconnect_button.grid(row=2, column=0, columnspan=2, pady=10, sticky='nsew')
         
-        self.sync_button = ttk.Button(self.imu_control_frame, text="Sync Sensors", command=self.sync_sensors)
+        self.sync_button = ttk.Button(self.imu_control_frame, text="Sync Sensors", command= lambda: Thread(target=self.sync_sensors,daemon =True).start())
         self.sync_button.grid(row=3, column=0, columnspan=2, pady=10, sticky='nsew') 
+
+        #self.stop_sync_button =ttk.Button(self.imu_control_frame, text="Stop Sync Sensors", command=self.stop_sync_sensors)
+        #self.stop_sync_button.grid( row=4, column =0,columnspan=2, pady=10, sticky='nsew')
 
         self.imu_configuration_frame = ttk.LabelFrame(self.settings_tab, text="IMU Sensors Configuration")
         self.imu_configuration_frame.grid(row=2, column=0, padx=10, pady=10)
@@ -821,9 +824,12 @@ class IMURecordingStudio(tk.Tk):
         for combo in self.imu_comboboxes:
             combo['state'] = 'readonly'
             self.imu_lock_status = False
+    
+    #def stop_sync_sensors(self):
+        #self.imu.stop_IMU_sync()
 
     def sync_sensors(self):
-      self.imu.sync_IMU_sensors
+      self.imu.sync_IMU_sensors()
      
     def start_stop_button_streaming_imu(self):
        
@@ -924,7 +930,6 @@ class IMURecordingStudio(tk.Tk):
       self.thread[0] = Thread(target=self.camera1_thread)
       self.thread[0].start()
       print("Thread 0  started.")
-
    
       self.thread_flag[1] = True
       self.thread[1] = Thread(target=self.camera2_thread)
@@ -1019,7 +1024,7 @@ class IMURecordingStudio(tk.Tk):
                     data_entry['imu_acc'] = self.imu.acc_data.copy()
                     data_entry['imu_ang'] = self.imu.gyr_data.copy()
                     data_entry['imu_mag'] = self.imu.mag_data.copy()
-                    #data_entry['imu_ts'] = self.imu.sensor_timestamp.copy()
+                    data_entry['imu_ts'] = self.imu.sensor_timestamp.copy()
                     
                     self.latest_quat_data = self.imu.quat_data.copy()
 
@@ -1194,7 +1199,7 @@ class IMURecordingStudio(tk.Tk):
                 self.imu.reset_heading()
                 self.reset_heading_flag = False
 
-            time.sleep(0.05)  
+            #time.sleep(0.02)  
 
         except Exception as e:
             print(f"[IMU plot] Error: {e}")

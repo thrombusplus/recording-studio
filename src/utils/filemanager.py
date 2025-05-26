@@ -33,12 +33,16 @@ class FileManager:
             writer = csv.writer(csvfile)
 
             # CSV header
-            header = ["timestamp"]
+            header = ["timestamp"]  
+            for i in range(6):
+                header.append(f"IMU_{i}_sensor_ts")
+                        
             for i in range(6):  
                 header += [f"quat.x({i})", f"quat.y({i})", f"quat.z({i})", f"quat.w({i})"]
                 header += [f"acc.x({i})", f"acc.y({i})", f"acc.z({i})"]
                 header += [f"ang.x({i})", f"ang.y({i})", f"ang.z({i})"]
                 header += [f"mag.x({i})", f"mag.y({i})", f"mag.z({i})"]
+
             writer.writerow(header)
 
             #Txt header
@@ -47,6 +51,7 @@ class FileManager:
                 header += [f"quat.x({i})", f"quat.y({i})", f"quat.z({i})", f"quat.w({i})"]
                 header += [f"acc.x({i})", f"acc.y({i})", f"acc.z({i})"]
                 header += [f"ang.x({i})", f"ang.y({i})", f"ang.z({i})"]
+                
 
             while not data_queue.empty():
                 try:
@@ -56,7 +61,14 @@ class FileManager:
                     imu_ang = data.get('imu_ang')
                     imu_mag = data.get('imu_mag')
                     unix_ts = int(data['timestamp'] * 1000)
+                    imu_ts = data.get('imu_ts') 
                     row = [unix_ts]
+                    for pos_idx in range(6):
+                        imu_idx = imu_ordered_configuration[pos_idx] if pos_idx < len(imu_ordered_configuration) else -1
+                        if imu_idx != -1 and imu_ts is not None and imu_idx < len(imu_ts):
+                            row.append(int(imu_ts[imu_idx]))  
+                        else:
+                            row.append("")  
                     txt_row = [unix_ts]
 
                     for pos_idx in range(6):  # 0: L Thigh, ..., 5: R Foot
