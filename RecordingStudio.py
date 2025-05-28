@@ -58,6 +58,10 @@ class IMURecordingStudio(tk.Tk):
 
         self.frame_scroll_active = False
 
+        self.save_path = ""         # Directory for saving
+        self.load_path = ""         # Directory for loading (visualization)
+
+
         
         # Thread explanation: #Thread[0] and Thread[1] are used by webcams to stream upon pressing the Start/Stop button
         # Thread[2] will be used when Run/Stop Streaming button is pressed to stream IMU data in the IMU vector view.
@@ -344,9 +348,10 @@ class IMURecordingStudio(tk.Tk):
         directory = filedialog.askdirectory()
         print(f"[DEBUG] Επιλέχθηκε φάκελος: {directory}")
         if directory:
-            self.saving_directory = directory
-            self.save_directory_field.config(text=self.saving_directory)
-            self.selected_data_dir = FileManager(self.saving_directory)
+            self.save_path = directory
+            self.save_directory_var.set(directory)
+            self.selected_data_dir = FileManager(directory)
+
         
 
     def check_patient_id(self):
@@ -1443,7 +1448,7 @@ class IMURecordingStudio(tk.Tk):
                 print("No folder selected.")
                 return
 
-            self.selected_data_dir = folder_path
+            self.load_path = folder_path
 
         # Find all CSV files (full filenames)
             csv_files = [f for f in os.listdir(folder_path) if f.endswith('.csv')]
@@ -1498,7 +1503,7 @@ class IMURecordingStudio(tk.Tk):
             print("No file selected in combobox.")
             return
 
-        folder_path = self.selected_data_dir
+        folder_path = self.load_path
         csv_path = os.path.join(folder_path, selected_file)
         base_path = os.path.splitext(csv_path)[0]
         cam1_path = base_path + "_camera1.npy"
