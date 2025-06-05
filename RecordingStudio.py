@@ -259,6 +259,15 @@ class IMURecordingStudio(tk.Tk):
         self.imu_pose_selection=ttk.Combobox(frame, state="readonly", values = ["Sitting","Laying"])
         self.imu_pose_selection.set("Sitting")
         self.imu_pose_selection.grid(row=0,column=3, columnspan=1 )
+
+        imu_calibrate_button =ttk.Button(frame, text="Calibrate Data", command=self.get_calibration_data)
+        imu_calibrate_button.grid(row=0,column=4, columnspan=1)
+
+        self.show_calibrated_checkbox_var = tk.BooleanVar()
+        self.show_calibrated_checkbox_var.set(False)
+
+        self.show_calibrated_data_tickbox = ttk.Checkbutton(frame, text="Show Calibrated", onvalue=True, offvalue=False, variable=self.show_calibrated_checkbox_var)
+        self.show_calibrated_data_tickbox.grid(row=0, column=5, columnspan=1)
     
 
     def create_settings_tab(self):
@@ -346,7 +355,7 @@ class IMURecordingStudio(tk.Tk):
 
     def update_saving_directory(self):
         directory = filedialog.askdirectory()
-        print(f"[DEBUG] Επιλέχθηκε φάκελος: {directory}")
+        print(f"[DEBUG] Folder Slected: {directory}")
         if directory:
             self.save_path = directory
             self.save_directory_var.set(directory)
@@ -645,7 +654,7 @@ class IMURecordingStudio(tk.Tk):
                 self.latest_frame_cam2 = None  
 
         camera_manager.streaming = False
-        time.sleep(0.03)
+        time.sleep(0.01)
 
 
     def stream_webcam(self): # No very elegant, maybe can be converted to a for loop
@@ -829,9 +838,7 @@ class IMURecordingStudio(tk.Tk):
         for combo in self.imu_comboboxes:
             combo['state'] = 'readonly'
             self.imu_lock_status = False
-    
-    #def stop_sync_sensors(self):
-        #self.imu.stop_IMU_sync()
+
 
     def sync_sensors(self):
       self.imu.sync_IMU_sensors()
@@ -908,11 +915,12 @@ class IMURecordingStudio(tk.Tk):
 
 
     def reset_heading_and_countdown(self, seconds_left):
-      if seconds_left == 3:  
+      if seconds_left == 2:  
         try:
-            self.imu.reset_heading()
-            self.initiate_plot()
-            self.imu.get_measurments()
+            # self.imu.reset_heading()
+            # self.initiate_plot()
+            # self.imu.get_measurments()
+            self.get_calibration_data()
             print("IMU heading reset successfully.")
         except Exception as e:
             print(f"Error resetting IMU heading: {e}")
@@ -1136,8 +1144,6 @@ class IMURecordingStudio(tk.Tk):
                 self.initiate_plot()
                 self.imu.start_measuring_mode()
 
-                #time.sleep(0.03)
-
                 flag_index = 2
                 self.thread_flag[flag_index] =True
                 self.thread[flag_index]= Thread(target=self.update_imu_plot)
@@ -1160,7 +1166,6 @@ class IMURecordingStudio(tk.Tk):
         self.get_pose(self.ax , self.canvas)
         
 
-    # TODO: More work is needed here
     def update_imu_plot(self):
       self.new_joints = copy.deepcopy(self.joints)
 
@@ -1172,7 +1177,7 @@ class IMURecordingStudio(tk.Tk):
                 if not hasattr(self, 'latest_quat_data'):
                     print("[IMU Plot] No quaternion data available yet")
                     #time.sleep(0.05)
-                    continue
+
                 quaternions = self.latest_quat_data
                 
             else:
@@ -1182,8 +1187,15 @@ class IMURecordingStudio(tk.Tk):
             for legSegment in range(len(self.imu_comboboxes)):
                 deviceIdx = self.imu_ordered_configuration[legSegment]
                 if deviceIdx != -1:
-                    q = np.round(quaternions[deviceIdx, :], 4)
-                    print(q)
+                    q = quaternions[deviceIdx, :]
+                    print(f"Raw Sensor Quaternions: {q}")
+                    if self.show_calibrated_checkbox_var.get() and self.imu.calibration_status[deviceIdx]:
+                        q = self.multiply_quaternions(self.imu.calibration_inverse[deviceIdx], q)
+                        # q = q / np.linalg.norm(q)  # Normalize the quaternion
+                        print(f"Calibrated q: {q}")
+                        print(f"Norm of Quaternions: {np.linalg.norm(q)}")
+                        
+                    q = np.round(q, 4)
                     rotationMatrix = self.get_rotation_matrix_quaternions(q)
                     self.rotate_leg_segment(self.imu_combobox_labels[legSegment]['text'][:-1], rotationMatrix)
 
@@ -1834,6 +1846,20 @@ class IMURecordingStudio(tk.Tk):
 
         except Exception as e:
             print(f"[Pose Viewer] Error updating pose: {e}")
+
+    def get_calibration_data(self):
+        self.imu.calibrate()        
+
+    def multiply_quaternions(self, q1, q2):
+        # Quaternion multiplication
+        w1, x1, y1, z1 = q1
+        w2, x2, y2, z2 = q2
+        return np.array([
+            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+            w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
+        ])
 
 # Run the application
 if __name__ == "__main__":

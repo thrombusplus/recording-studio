@@ -204,10 +204,11 @@ class IMUManager:
     def get_quaternions_inverse(self):
         for dev in range(len(self.devices.connectedDots())):
             if self.quat_data[dev,:].size != 0:
-                squared_sum = self.quat_data[dev,0]**2
+                squared_sum = ( 
+                self.quat_data[dev,0]**2
                 + self.quat_data[dev,1]**2
                 + self.quat_data[dev,2]**2 
-                + self.quat_data[dev,3]**2
+                + self.quat_data[dev,3]**2 )
 
                 self.calibration_inverse[dev,:] = np.array([self.quat_data[dev,0], -self.quat_data[dev,1], -self.quat_data[dev,2], -self.quat_data[dev,3]])/squared_sum
                 self.calibration_status[dev] = True
