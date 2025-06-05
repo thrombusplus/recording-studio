@@ -50,10 +50,10 @@ class DEFAULT_SETTINGS:
             'Left Hip': np.array([0, 0.5, 0]),
             'Right Knee': np.array([1.5, -0.5, 0]),
             'Left Knee': np.array([1.5, 0.5, 0]),
-            'Right Ankle': np.array([3.0, -0.5, 0]),
-            'Left Ankle': np.array([3.0, 0.5, 0]),
-            'Right Toes': np.array([3.2, -0.5, 0]),
-            'Left Toes': np.array([3.2, 0.5, 0])
+            'Right Ankle': np.array([1.5, -0.5, -1.5]),
+            'Left Ankle': np.array([1.5, 0.5, -1.5]),
+            'Right Toes': np.array([1.85, -0.5, -1.5]), #length of foot 0.35
+            'Left Toes': np.array([1.85, 0.5, -1.5])
             } 
         return joints
     
@@ -74,8 +74,8 @@ class DEFAULT_SETTINGS:
             'Left Knee': np.array([4.5, 0.5, 0]),
             'Right Ankle': np.array([6, -0.5, 0]),
             'Left Ankle': np.array([6, 0.5, 0]),
-            'Right Toes': np.array([6.2, -0.5, 0]),
-            'Left Toes': np.array([6.2, 0.5, 0])
+            'Right Toes': np.array([6.247, -0.5, 0.247]),
+            'Left Toes': np.array([6.247, 0.5, 0.247])
             } 
         return joints
 

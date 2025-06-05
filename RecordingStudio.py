@@ -1155,14 +1155,7 @@ class IMURecordingStudio(tk.Tk):
                 print("IMU configuration is not locked. Please proceed checking the configuration and lock it brefore start streaming")
     
     def initiate_plot(self):
-        self.ax.clear()
-        self.ax.set_xlabel("X")
-        self.ax.set_ylabel("Y")
-        self.ax.set_zlabel("Z")
-        self.ax.set_xlim3d([-1, 6])
-        self.ax.set_ylim3d([-3.5, 3.5])
-        self.ax.set_zlim3d([-3.5, 3.5])
-        self.ax.set_autoscale_on(False)
+        self.reset_pose_plot()
         self.get_pose(self.ax , self.canvas)
         
 
@@ -1199,14 +1192,7 @@ class IMURecordingStudio(tk.Tk):
                     rotationMatrix = self.get_rotation_matrix_quaternions(q)
                     self.rotate_leg_segment(self.imu_combobox_labels[legSegment]['text'][:-1], rotationMatrix)
 
-            self.ax.clear()
-            self.ax.set_xlabel("X")
-            self.ax.set_ylabel("Y")
-            self.ax.set_zlabel("Z")
-            self.ax.set_xlim3d([-1, 6])
-            self.ax.set_ylim3d([-3.5, 3.5])
-            self.ax.set_zlim3d([-3.5, 3.5])
-            self.ax.set_autoscale_on(False)
+            self.reset_pose_plot()
             DEFAULT_SETTINGS.plot_body_parts(self.ax, self.new_joints)
             # self.quiver = self.ax.quiver(self.joints['Left Hip'][0], self.joints['Left Hip'][1], self.joints['Left Hip'][2], self.new_joints['Left Knee'][0], self.new_joints['Left Knee'][
             # 1], self.new_joints['Left Knee'][2], color='red', label='Vector direction')
@@ -1345,6 +1331,16 @@ class IMURecordingStudio(tk.Tk):
             rotated = np.dot(rotationMatrix, norm)
             if not np.isnan(rotated).any():
                 self.new_joints['Right Toes'] = rotated * np.linalg.norm(stop) + self.new_joints['Right Ankle']
+
+    def reset_pose_plot(self):
+        self.ax.clear()
+        self.ax.set_xlabel("X")
+        self.ax.set_ylabel("Y")
+        self.ax.set_zlabel("Z")
+        self.ax.set_xlim3d([-1, 7])
+        self.ax.set_ylim3d([-3.5, 3.5])
+        self.ax.set_zlim3d([-3.5, 3.5])
+        self.ax.set_autoscale_on(False)            
         
     def reset_heading(self):
         # self.imu.reset_heading()  
@@ -1404,18 +1400,18 @@ class IMURecordingStudio(tk.Tk):
         self.camera1_npy_combobox['state'] = 'readonly'
         self.camera2_npy_combobox['state'] = 'readonly'
 
-        # Ορίζουμε default τιμές
+        # Setting default values
         self.camera1_npy_combobox.set(npy_files[0])
         if len(npy_files) > 1:
             self.camera2_npy_combobox.set(npy_files[1])
         else:
             self.camera2_npy_combobox.set(npy_files[0])
 
-        # σύνδεση event
+        # Event connection
         self.camera1_npy_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_npy(1))
         self.camera2_npy_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_npy(2))
 
-        # φορτώνουμε τα αρχικά default αρχεία
+        # Loading initial camera data
         self.load_selected_camera_npy(1)
         self.load_selected_camera_npy(2)
 
@@ -1812,7 +1808,7 @@ class IMURecordingStudio(tk.Tk):
             self.ax6.set_xlabel("X")
             self.ax6.set_ylabel("Y")
             self.ax6.set_zlabel("Z")
-            self.ax6.set_xlim3d([-1, 6])
+            self.ax6.set_xlim3d([-1, 7])
             self.ax6.set_ylim3d([-3.5, 3.5])
             self.ax6.set_zlim3d([-3.5, 3.5])
             self.ax6.set_title("Pose Viewer")
