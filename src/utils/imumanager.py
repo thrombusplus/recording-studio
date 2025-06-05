@@ -20,6 +20,8 @@ class IMUManager:
         self.gyr_data = np.empty([numOfDevices, 3])
         self.mag_data = np.empty([numOfDevices, 3])
         self.quat_data = np.empty([numOfDevices, 4])
+        self.calibration_status = np.full([numOfDevices,1], False)
+        self.calibration_inverse = np.empty([numOfDevices, 4])
 
         self.sensor_timestamp = np.zeros((6))  #for save sensor's timestamps
         
@@ -189,8 +191,26 @@ class IMUManager:
 
 
     def reshape_measurments(self):
-            self.acc_data = self.acc_data.reshape(-1, 3)
-            self.gyr_data = self.gyr_data.reshape(-1, 3)
-            self.mag_data = self.mag_data.reshape(-1, 3)
-            self.quat_data =  self.quat_data.reshape(-1, 4)                
+        self.acc_data = self.acc_data.reshape(-1, 3)
+        self.gyr_data = self.gyr_data.reshape(-1, 3)
+        self.mag_data = self.mag_data.reshape(-1, 3)
+        self.quat_data =  self.quat_data.reshape(-1, 4)      
 
+    def calibrate(self):
+        self.get_quaternions_inverse()
+        return print("Inverse Quaternions Saved")
+
+
+    def get_quaternions_inverse(self):
+        for dev in range(len(self.devices.connectedDots())):
+            if self.quat_data[dev,:].size != 0:
+                squared_sum = self.quat_data[dev,0]**2
+                + self.quat_data[dev,1]**2
+                + self.quat_data[dev,2]**2 
+                + self.quat_data[dev,3]**2
+
+                self.calibration_inverse[dev,:] = np.array([self.quat_data[dev,0], -self.quat_data[dev,1], -self.quat_data[dev,2], -self.quat_data[dev,3]])/squared_sum
+                self.calibration_status[dev] = True
+            else:
+                print(f"Data of IMU number {dev} are empty.")
+        return
