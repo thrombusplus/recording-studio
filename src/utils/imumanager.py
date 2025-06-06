@@ -15,13 +15,13 @@ class IMUManager:
         self.reset_heading_flag = False # Flag to perfrom heading reset, returns to false afterwards
         self.reset_heading_status = False # If is False then heading is set to Default
         
-        numOfDevices = len(self.devices.connectedDots())
-        self.acc_data = np.empty([numOfDevices, 3]) #No sure if should be filled with Nan instead
-        self.gyr_data = np.empty([numOfDevices, 3])
-        self.mag_data = np.empty([numOfDevices, 3])
-        self.quat_data = np.empty([numOfDevices, 4])
-        self.calibration_status = np.full([numOfDevices,1], False)
-        self.calibration_inverse = np.empty([numOfDevices, 4])
+        self.numOfDevices = len(self.devices.connectedDots())
+        self.acc_data = np.empty([self.numOfDevices, 3]) #No sure if should be filled with Nan instead
+        self.gyr_data = np.empty([self.numOfDevices, 3])
+        self.mag_data = np.empty([self.numOfDevices, 3])
+        self.quat_data = np.empty([self.numOfDevices, 4])
+        self.calibration_status = np.full([self.numOfDevices,1], False)
+        self.calibration_inverse = np.empty([self.numOfDevices, 4])
 
         self.sensor_timestamp = np.zeros((6))  #for save sensor's timestamps
         
@@ -175,6 +175,7 @@ class IMUManager:
                             
                 if packet.containsOrientation():
                     self.quat_data[dev, :] = packet.orientationQuaternion()
+                    
                 else:
                     q = np.empty(4)
                     q[:]=np.nan

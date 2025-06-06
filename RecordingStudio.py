@@ -627,7 +627,7 @@ class IMURecordingStudio(tk.Tk):
 
         camera_manager.streaming = False
 
-        time.sleep(0.03)
+        time.sleep(0.01)
 
     def camera2_thread (self):
 
@@ -921,7 +921,7 @@ class IMURecordingStudio(tk.Tk):
             # self.initiate_plot()
             # self.imu.get_measurments()
             self.get_calibration_data()
-            print("IMU heading reset successfully.")
+            print("Calibration data acquired!")
         except Exception as e:
             print(f"Error resetting IMU heading: {e}")
 
@@ -1033,7 +1033,8 @@ class IMURecordingStudio(tk.Tk):
                     data_entry['imu'] = None
                 else:
                     self.imu.get_measurments()
-                    data_entry['imu'] = self.imu.quat_data.copy()
+                    data_entry['imu'] = self.calibrate_quaternions()
+                    # data_entry['imu'] = self.imu.quat_data.copy()
                     data_entry['imu_acc'] = self.imu.acc_data.copy()
                     data_entry['imu_ang'] = self.imu.gyr_data.copy()
                     data_entry['imu_mag'] = self.imu.mag_data.copy()
@@ -1857,6 +1858,15 @@ class IMURecordingStudio(tk.Tk):
             w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
         ])
 
+    def calibrate_quaternions(self):
+        calibrated_quaternions = np.empty([self.imu.numOfDevices, 4])
+        for dev in range(self.imu.numOfDevices):
+            if self.imu.calibration_status[dev]:
+                calibrated_quaternions[dev,:] = self.multiply_quaternions(self.imu.calibration_inverse[dev,:], self.imu.quat_data[dev,:])
+            else:
+                print(f"Device {dev} is not calibrated")
+        return calibrated_quaternions
+        
 # Run the application
 if __name__ == "__main__":
 
