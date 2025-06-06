@@ -627,7 +627,7 @@ class IMURecordingStudio(tk.Tk):
 
         camera_manager.streaming = False
 
-        time.sleep(0.01)
+        time.sleep(0.02)
 
     def camera2_thread (self):
 
@@ -654,7 +654,7 @@ class IMURecordingStudio(tk.Tk):
                 self.latest_frame_cam2 = None  
 
         camera_manager.streaming = False
-        time.sleep(0.01)
+        time.sleep(0.02)
 
 
     def stream_webcam(self): # No very elegant, maybe can be converted to a for loop
@@ -1034,7 +1034,7 @@ class IMURecordingStudio(tk.Tk):
                 else:
                     self.imu.get_measurments()
                     data_entry['imu'] = self.calibrate_quaternions()
-                    # data_entry['imu'] = self.imu.quat_data.copy()
+                    # data_entry['imu'] = self.imu.quat_data.copy() #Use this if you want to save raw data
                     data_entry['imu_acc'] = self.imu.acc_data.copy()
                     data_entry['imu_ang'] = self.imu.gyr_data.copy()
                     data_entry['imu_mag'] = self.imu.mag_data.copy()
@@ -1070,7 +1070,7 @@ class IMURecordingStudio(tk.Tk):
 
             if self.recording and self.use_queue:
                 self.data_queue.put(data_entry)
-                print("Data added to queue")
+                ### print("Data added to queue")
 
             frames += 1
             print(f"Frames: {frames}")
@@ -1087,15 +1087,15 @@ class IMURecordingStudio(tk.Tk):
                     self.ax1.imshow(self.latest_frame_cam1)
                     self.ax1.axis('off')
                     self.canvas1.draw()
-                    print("Camera 1 updated")
+                    ### print("Camera 1 updated")
                 if self.latest_frame_cam2 is not None:
                     self.ax2.clear()
                     self.ax2.imshow(self.latest_frame_cam2)
                     self.ax2.axis('off')
                     self.canvas2.draw()
-                    print("Camera 2 updated")
+                    ### print("Camera 2 updated")
                 
-                time.sleep(0.01)
+                time.sleep(0.02)
             
             except Exception as e:
                 print(f"[Thread 4] Error during figure update: {e}")
@@ -1182,12 +1182,12 @@ class IMURecordingStudio(tk.Tk):
                 deviceIdx = self.imu_ordered_configuration[legSegment]
                 if deviceIdx != -1:
                     q = quaternions[deviceIdx, :]
-                    print(f"Raw Sensor Quaternions: {q}")
+                    ### print(f"Raw Sensor Quaternions: {q}")
                     if self.show_calibrated_checkbox_var.get() and self.imu.calibration_status[deviceIdx]:
                         q = self.multiply_quaternions(self.imu.calibration_inverse[deviceIdx], q)
                         # q = q / np.linalg.norm(q)  # Normalize the quaternion
-                        print(f"Calibrated q: {q}")
-                        print(f"Norm of Quaternions: {np.linalg.norm(q)}")
+                        ### print(f"Calibrated q: {q}")
+                        ### print(f"Norm of Quaternions: {np.linalg.norm(q)}")
                         
                     q = np.round(q, 4)
                     rotationMatrix = self.get_rotation_matrix_quaternions(q)
