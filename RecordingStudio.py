@@ -1576,9 +1576,9 @@ class IMURecordingStudio(tk.Tk):
             if all(col in self.loaded_imu_data.columns for col in acc_cols):
                 acc_data = self.loaded_imu_data[acc_cols].to_numpy()
                 if not np.isnan(acc_data).all():
-                    imu_tickbox_map[imu_index].set(True)   # ενεργοποίηση tickbox
+                    imu_tickbox_map[imu_index].set(True)   # tickbox activation
                 else:
-                    imu_tickbox_map[imu_index].set(False)  # απενεργοποίηση
+                    imu_tickbox_map[imu_index].set(False)  # tickbox deactivation
             else:
                 imu_tickbox_map[imu_index].set(False)
 
@@ -1831,7 +1831,7 @@ class IMURecordingStudio(tk.Tk):
                 if not checkbox_vars[i].get():
                     continue
 
-                col_q = [f"quat.x({i})", f"quat.y({i})", f"quat.z({i})", f"quat.w({i})"]
+                col_q = [f"quat.w({i})", f"quat.x({i})", f"quat.y({i})", f"quat.z({i})"]
                 if all(col in self.loaded_imu_data.columns for col in col_q):
                     q = self.loaded_imu_data.loc[frame_idx, col_q].values.astype(float)
                     R = self.get_rotation_matrix_quaternions(q)

@@ -38,7 +38,7 @@ class FileManager:
                 header.append(f"IMU_{i}_sensor_ts")
                         
             for i in range(6):  
-                header += [f"quat.x({i})", f"quat.y({i})", f"quat.z({i})", f"quat.w({i})"]
+                header += [f"quat.w({i})", f"quat.x({i})", f"quat.y({i})", f"quat.z({i})"]
                 header += [f"acc.x({i})", f"acc.y({i})", f"acc.z({i})"]
                 header += [f"ang.x({i})", f"ang.y({i})", f"ang.z({i})"]
                 header += [f"mag.x({i})", f"mag.y({i})", f"mag.z({i})"]
@@ -48,7 +48,7 @@ class FileManager:
             #Txt header
             txt_header = ["timestamp"]
             for i in range(6):
-                header += [f"quat.x({i})", f"quat.y({i})", f"quat.z({i})", f"quat.w({i})"]
+                header += [f"quat.w({i})", f"quat.x({i})", f"quat.y({i})", f"quat.z({i})"]
                 header += [f"acc.x({i})", f"acc.y({i})", f"acc.z({i})"]
                 header += [f"ang.x({i})", f"ang.y({i})", f"ang.z({i})"]
                 
