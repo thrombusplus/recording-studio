@@ -191,6 +191,10 @@ class IMURecordingStudio(tk.Tk):
         stop_recording=ttk.Button(frame, text="Stop Recording", command= self.stop_recording)
         stop_recording.grid(row=4, column=2, columnspan=1, padx=10, pady=10, sticky='w')
 
+        #Create a label sto shop if in recording/ready mode
+        self.exercise_list_label=ttk.Label(frame, font= 10, text='Ready for recording', background= 'yellow' )
+        self.exercise_list_label.grid(row=5, column=0, columnspan=1, padx=10, pady=10, sticky='w')
+
     
     def create_camera_views(self, frame):
         # Camera 1 View (using Matplotlib as placeholder)
@@ -256,9 +260,9 @@ class IMURecordingStudio(tk.Tk):
         self.imu_pose_selection.set("Sitting")
         self.imu_pose_selection.grid(row=0,column=3, columnspan=1 )
 
-        self.imu_pose_selection=ttk.Combobox(frame, state="readonly", values = ["Sitting","Laying"])
-        self.imu_pose_selection.set("Sitting")
-        self.imu_pose_selection.grid(row=0,column=3, columnspan=1 )
+        # self.imu_pose_selection=ttk.Combobox(frame, state="readonly", values = ["Sitting","Laying"])
+        # self.imu_pose_selection.set("Sitting")
+        # self.imu_pose_selection.grid(row=0,column=3, columnspan=1 )
 
         imu_calibrate_button =ttk.Button(frame, text="Calibrate Data", command=self.get_calibration_data)
         imu_calibrate_button.grid(row=0,column=4, columnspan=1)
@@ -915,6 +919,8 @@ class IMURecordingStudio(tk.Tk):
 
 
     def reset_heading_and_countdown(self, seconds_left):
+      self.exercise_list_label['text'] = f"Recording starts in: {seconds_left} seconds"
+      self.exercise_list_label['background'] = 'orange'
       if seconds_left == 2:  
         try:
             # self.imu.reset_heading()
@@ -966,6 +972,8 @@ class IMURecordingStudio(tk.Tk):
       print("Thread 5  started.")
 
       print("Recording Started.")
+      self.exercise_list_label['text'] = f"RECORDING!"
+      self.exercise_list_label['background'] = 'green'
 
     def stop_recording(self):
      if not self.recording:
@@ -1013,6 +1021,9 @@ class IMURecordingStudio(tk.Tk):
      self.camera_list_2['state'] = 'readonly'
 
      print("System fully reset: Ready for new streaming or recording.")
+
+     self.exercise_list_label['text'] = "Ready for recording"
+     self.exercise_list_label['background'] = 'yellow'
 
     def data_collection_thread(self):
         
