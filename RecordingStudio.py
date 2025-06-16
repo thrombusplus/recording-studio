@@ -78,6 +78,14 @@ class IMURecordingStudio(tk.Tk):
         # Initate a Tab control
         self.tabControl = ttk.Notebook(self)
         
+        def closeWindow():
+            self.disconnect_IMU_sensors()
+            self.disconnect_webcams()
+            self.destroy()
+            print("EXIT")
+
+        self.protocol('WM_DELETE_WINDOW', closeWindow)
+
         # Initiate Main tab
         self.main_tab = ttk.Frame(self.tabControl)
         self.tabControl.add(self.main_tab, text='Main')
