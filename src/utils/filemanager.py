@@ -125,7 +125,12 @@ class FileManager:
             np.save(cam2_path, np.array(camera2_frames))
         
         #Pose information
-        pose_code = "L" if pose_setting == "Laying" else "S"
+        if pose_setting == "Laying":
+            pose_code ="L"
+        elif pose_setting == "Sitting":
+            pose_code == "S"
+        else:
+            pose_code = "ST"
         with open(imu_csv_path, 'a', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow([f"#POSE={pose_code}"])

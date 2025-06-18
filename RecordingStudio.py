@@ -264,7 +264,7 @@ class IMURecordingStudio(tk.Tk):
         imu_reset_heading_button =ttk.Button(frame, text="Reset Heading", command=self.reset_heading)
         imu_reset_heading_button.grid(row=0,column=0, columnspan=1)
 
-        self.imu_pose_selection=ttk.Combobox(frame, state="readonly", values = ["Sitting","Laying"])
+        self.imu_pose_selection=ttk.Combobox(frame, state="readonly", values = ["Sitting","Laying","Standing"])
         self.imu_pose_selection.set("Sitting")
         self.imu_pose_selection.grid(row=0,column=3, columnspan=1 )
 
@@ -1258,8 +1258,11 @@ class IMURecordingStudio(tk.Tk):
     def get_pose(self, ax=None, canvas =None):
         if self.imu_pose_selection.get() == 'Sitting':
             self.joints = DEFAULT_SETTINGS.skeleton_pose_sitting_joints()
-        else:
+        elif self.imu_pose_selection.get()== 'Laying':
             self.joints = DEFAULT_SETTINGS.skeleton_pose_laying_joints()
+        else:
+            self.joints = DEFAULT_SETTINGS.skeleton_pose_standing_joints()
+        
         if ax is not None and canvas is not None:
             DEFAULT_SETTINGS.plot_body_parts(self.ax, self.joints)
             canvas.draw() 
@@ -1551,8 +1554,10 @@ class IMURecordingStudio(tk.Tk):
                             pose_code = last_line.split("=")[-1]
                             if pose_code == "L":
                                 self.imu_pose_selection.set("Laying")
-                            else:
+                            elif pose_code=="S":
                                 self.imu_pose_selection.set("Sitting")
+                            else:
+                                self.imu_pose_selection.set("Standing")
             except Exception as e:
                 print(f"[POSE] Could not read pose info from file: {e}")
 

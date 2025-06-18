@@ -4,7 +4,24 @@ import matplotlib.pyplot as plt
 class DEFAULT_SETTINGS: 
     def exercises_list():
         list = []
-        list.append('Calf_Pumps')
+        
+        #Laying
+        list.append('Ankle_Pumps')
+        list.append('Ankle Rotations')
+        list.append('Bed_Supported_Knee_Bends')
+        list.append('Abduction_Excercise')
+        list.append('Straight_Leg_Raises') # Sitting and Laying option
+
+        #Standing
+        list.append('Standing_Knee_raises')
+        list.append('Standing_Hip_Abduction')
+        list.append('Standing_Hip_Extensions')
+
+        #Sitting
+        list.append('Sitting_Supported_Knee_Bends')
+        list.append('Sitting_Unsupported_Knee_Bends')
+
+        """list.append('Calf_Pumps')
         list.append('Knee_Extensions')
         list.append('Seated_Marching')
         list.append('Ankle_circles')
@@ -29,7 +46,8 @@ class DEFAULT_SETTINGS:
         list.append('F_Supine_Reverse_Straight_Leg_Left')
         list.append('F_Supine_Reverse_Straight_Leg_Right')
         list.append('F_Supine_Straight_Legs_Ankle_Rotation')
-        list.append('F_Supine_Straight_Legs_Ankle_Dorsi_Plantar_Flexion')
+        list.append('F_Supine_Straight_Legs_Ankle_Dorsi_Plantar_Flexion')"""
+        
         return list
 
     def max_cameras(): # the maximum number of cameras that can be connected
@@ -77,6 +95,28 @@ class DEFAULT_SETTINGS:
             'Right Toes': np.array([6.247, -0.5, 0.247]),
             'Left Toes': np.array([6.247, 0.5, 0.247])
             } 
+        return joints
+
+    def skeleton_pose_standing_joints():
+        joints = {
+            'Head': np.array([0, 0, 3]),
+            'Neck': np.array([0, 0, 2]),
+            'Right Shoulder': np.array([0, -0.5, 2]),
+            'Left Shoulder': np.array([0, 0.5, 2]),
+            'Right Elbow': np.array([0, -0.8, 1]),
+            'Left Elbow': np.array([0, 0.8, 1]),
+            'Right Wrist': np.array([0, -1.0, 0]),
+            'Left Wrist': np.array([0, 1.0, 0]),
+            'Hip': np.array([0, 0, 0]),
+            'Right Hip': np.array([0, -0.5, 0]),
+            'Left Hip': np.array([0, 0.5, 0]),
+            'Right Knee': np.array([0, -0.5, -1.5]),
+            'Left Knee': np.array([0, 0.5, -1.5]),
+            'Right Ankle': np.array([0, -0.5, -3.0]),
+            'Left Ankle': np.array([0, 0.5, -3.0]),
+            'Right Toes': np.array([0.35, -0.5, -3.0]),
+            'Left Toes': np.array([0.35, 0.5, -3.0])
+        }
         return joints
 
     def plot_body_parts(axes, joints):
