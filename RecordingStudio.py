@@ -550,7 +550,14 @@ class IMURecordingStudio(tk.Tk):
 
         load_button = ttk.Button(select_data_frame, text="Load Data", command=lambda: Thread(target=self.load_recordings, daemon=True).start())
         load_button.grid(row=6, column=2, padx=5, pady=5, columnspan=1, sticky='new')
-        
+
+        # Show calibrated quaternions
+        self.show_calibrated_visual_checkbox_var = tk.BooleanVar()
+        self.show_calibrated_visual_checkbox_var.set(False)
+
+        self.select_show_calibrated_tickbox = ttk.Checkbutton(select_data_frame,text="Show Calibrated", variable=self.show_calibrated_visual_checkbox_var, onvalue=True, offvalue=False,command=self.trigger_update)
+        self.select_show_calibrated_tickbox.grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky='w')
+
         #self.update_plots_button = ttk.Button(select_data_frame, text="Update Plots", command=self.update_visualization_plots)
         #self.update_plots_button.grid(row=6, column=2, padx=10, pady=10, columnspan=1, sticky='new')
 
@@ -929,7 +936,7 @@ class IMURecordingStudio(tk.Tk):
     def reset_heading_and_countdown(self, seconds_left):
       self.exercise_list_label['text'] = f"Recording starts in: {seconds_left} seconds"
       self.exercise_list_label['background'] = 'orange'
-      if seconds_left == 2:  
+      """if seconds_left == 2:  
         try:
             # self.imu.reset_heading()
             # self.initiate_plot()
@@ -937,7 +944,7 @@ class IMURecordingStudio(tk.Tk):
             self.get_calibration_data()
             print("Calibration data acquired!")
         except Exception as e:
-            print(f"Error resetting IMU heading: {e}")
+            print(f"Error resetting IMU heading: {e}")"""
 
       if seconds_left > 0:
         print(f"Recording starts in: {seconds_left}...")
@@ -1052,8 +1059,11 @@ class IMURecordingStudio(tk.Tk):
                     data_entry['imu'] = None
                 else:
                     self.imu.get_measurments()
-                    data_entry['imu'] = self.calibrate_quaternions()
-                    # data_entry['imu'] = self.imu.quat_data.copy() #Use this if you want to save raw data
+                    if frames == 0:
+                        self.get_calibration_data()  # calibration on the 1st frame
+                        #print("[Calibration] Inverse quaternion")
+                    #data_entry['imu'] = self.calibrate_quaternions()
+                    data_entry['imu'] = self.imu.quat_data.copy() #Use this if you want to save raw data
                     data_entry['imu_acc'] = self.imu.acc_data.copy()
                     data_entry['imu_ang'] = self.imu.gyr_data.copy()
                     data_entry['imu_mag'] = self.imu.mag_data.copy()
@@ -1655,6 +1665,21 @@ class IMURecordingStudio(tk.Tk):
             print(f"Updated slider to {num_frames} IMU frames.")
         
         self.data_changed = True
+        
+        # Calibration reference = frame 0
+        self.visual_calibration_reference = {}
+        for i in range(6):
+            col_q = [f"quat.w({i})", f"quat.x({i})", f"quat.y({i})", f"quat.z({i})"]
+            if all(col in self.loaded_imu_data.columns for col in col_q):
+                q_ref = self.loaded_imu_data.loc[0, col_q].values.astype(float)
+                norm_sq = np.sum(q_ref ** 2)
+                if not np.any(np.isnan(q_ref)):
+                    q_inv = np.array([q_ref[0], -q_ref[1], -q_ref[2], -q_ref[3]]) / norm_sq
+                    self.visual_calibration_reference[i] = q_inv
+                    print(f" IMU {i} reference saved from frame 0.")
+                else:
+                    print(f" Invalid quaternion for IMU {i} in frame 0.")
+
         self.update_visualization_plots()
 
         print("Finished loading and visualizing data.")
@@ -1852,6 +1877,8 @@ class IMURecordingStudio(tk.Tk):
                 self.right_thigh_checkbox_var, self.right_calf_checkbox_var, self.right_foot_checkbox_var
             ]
 
+            if not hasattr(self, 'visual_calibration_reference'):
+                self.visual_calibration_reference = {}
             for i in range(6):
                 if not checkbox_vars[i].get():
                     continue
@@ -1859,10 +1886,25 @@ class IMURecordingStudio(tk.Tk):
                 col_q = [f"quat.w({i})", f"quat.x({i})", f"quat.y({i})", f"quat.z({i})"]
                 if all(col in self.loaded_imu_data.columns for col in col_q):
                     q = self.loaded_imu_data.loc[frame_idx, col_q].values.astype(float)
+
+                    if np.any(np.isnan(q)) :
+                        print(f"Skipping IMU {i} due to invalid quaternion.")
+                        continue  # skip empty quaternions
+
+                    if self.show_calibrated_visual_checkbox_var.get():
+                        if i in self.visual_calibration_reference:
+                            q = self.multiply_quaternions(self.visual_calibration_reference[i], q)
+                        else:
+                            print(f"No calibration reference for IMU {i}")
+                            continue  # no calibration available
+
                     R = self.get_rotation_matrix_quaternions(q)
                     self.rotate_leg_segment(segment_labels[i], R)
+                    
 
             DEFAULT_SETTINGS.plot_body_parts(self.ax6, self.new_joints)
+            title = "Pose Viewer (Calibrated)" if self.show_calibrated_visual_checkbox_var.get() else "Pose Viewer"
+            self.ax6.set_title(title)
             self.canvas6.draw()
 
         except Exception as e:
@@ -1882,14 +1924,14 @@ class IMURecordingStudio(tk.Tk):
             w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
         ])
 
-    def calibrate_quaternions(self):
+    """def calibrate_quaternions(self):
         calibrated_quaternions = np.empty([self.imu.numOfDevices, 4])
         for dev in range(self.imu.numOfDevices):
             if self.imu.calibration_status[dev]:
                 calibrated_quaternions[dev,:] = self.multiply_quaternions(self.imu.calibration_inverse[dev,:], self.imu.quat_data[dev,:])
             else:
                 print(f"Device {dev} is not calibrated")
-        return calibrated_quaternions
+        return calibrated_quaternions"""
         
 # Run the application
 if __name__ == "__main__":

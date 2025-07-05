@@ -213,6 +213,7 @@ class IMUManager:
 
                 self.calibration_inverse[dev,:] = np.array([self.quat_data[dev,0], -self.quat_data[dev,1], -self.quat_data[dev,2], -self.quat_data[dev,3]])/squared_sum
                 self.calibration_status[dev] = True
+                print(f"[Calibration] IMU {dev} reference quaternion: {self.quat_data[dev, :]}")
             else:
                 print(f"Data of IMU number {dev} are empty.")
         return
