@@ -128,9 +128,9 @@ class FileManager:
         if pose_setting == "Laying":
             pose_code ="L"
         elif pose_setting == "Sitting":
-            pose_code == "S"
+            pose_code = "S"
         else:
-            pose_code = "ST"
+            pose_code = "ST"   #Standing
         with open(imu_csv_path, 'a', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow([f"#POSE={pose_code}"])

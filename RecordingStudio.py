@@ -63,10 +63,15 @@ class IMURecordingStudio(tk.Tk):
 
 
         
-        # Thread explanation: #Thread[0] and Thread[1] are used by webcams to stream upon pressing the Start/Stop button
-        # Thread[2] will be used when Run/Stop Streaming button is pressed to stream IMU data in the IMU vector view.
-        # When Start Recording Button is pressed -> Thread[0] will be used to Collect data from all sensors, Thread[1] will be used to stream webcam 1, 
-        # Thread[2] will be used to stream webcam 2, Thread[3] will be used to plot IMU data
+        # Thread explanation:
+        # Thread[0] and Thread[1] are used by webcams to stream upon pressing the Start/Stop button
+        # Thread[2] is used when Run/Stop Streaming button is pressed to stream IMU data in the IMU Vector View
+        # When the Start Recording button is pressed:
+        #  - Thread[0] and Thread[1]: stream webcam 1 and webcam 2
+        #  - Thread[3]: plot IMU data
+        #  - Thread[4]: update camera figures in GUI
+        #  - Thread[5]: collect data from both IMUs and cameras 
+
 
         self.thread = [None, None, None, None, None, None] # Stores threads
         self.thread_flag = [False, False, False, False, False, False] # Flag for stopping thread
@@ -140,7 +145,7 @@ class IMURecordingStudio(tk.Tk):
         imu_frame = ttk.LabelFrame(imu_container, text="IMU Vector View")
         imu_frame.grid(row=0, column=0, sticky="nsew")
 
-        # IMU Vector Control Frame (κάτω από το plot)
+        # IMU Vector Control Frame
         IMU_control_frame = ttk.LabelFrame(imu_container)
         IMU_control_frame.grid(row=1, column=0, pady=(5, 0), sticky="ew")
 
@@ -848,7 +853,7 @@ class IMURecordingStudio(tk.Tk):
                 selected_values.append(value)
 
     # If no conflicts, lock configuration
-        for combobox in self.imu_comboboxes:
+        if combobox in self.imu_comboboxes:
             combobox['state'] = 'disable'
             self.imu_lock_status = True
             print("IMU configuration locked successfully.")
@@ -956,6 +961,9 @@ class IMURecordingStudio(tk.Tk):
       print("Starting actual recording...")
 
       self.stop_threads()
+
+      self.latest_frame_cam1 = None
+      self.latest_frame_cam2 = None
 
       self.use_queue = True
       self.recording = True
@@ -1705,7 +1713,7 @@ class IMURecordingStudio(tk.Tk):
 
         time_axis = self.timestamps
 
-        # Ποια tickboxes είναι ενεργά
+        # Active tickboxes
         active_flags = {
             "acc": self.acc_checkbox_var.get(),
             "ang": self.ang_checkbox_var.get(),
@@ -1784,7 +1792,7 @@ class IMURecordingStudio(tk.Tk):
                 ax.scatter(time_axis[idx], mag[idx, 1], color='lime', s=40)
                 ax.scatter(time_axis[idx], mag[idx, 2], color='darkgreen', s=40)
 
-        # Τίτλοι και axis info
+        # Titles and axis info
         if "acc" in ax_map:
             ax = ax_map["acc"]
             ax.set_ylabel("m/s²")
