@@ -3,6 +3,7 @@ import csv
 import numpy as np
 import time
 import glob
+import cv2
 
 
 class FileManager:
@@ -23,8 +24,8 @@ class FileManager:
 
         imu_csv_path = os.path.join(self.file_path, f"{filename_base}.csv")
         imu_txt_path = os.path.join(self.file_path, f"{filename_base}.txt")
-        cam1_path = os.path.join(self.file_path, f"{filename_base}_camera1.npy")
-        cam2_path = os.path.join(self.file_path, f"{filename_base}_camera2.npy")
+        cam1_path = os.path.join(self.file_path, f"{filename_base}_camera1.mp4")
+        cam2_path = os.path.join(self.file_path, f"{filename_base}_camera2.mp4")
 
         camera1_frames = []
         camera2_frames = []
@@ -120,9 +121,18 @@ class FileManager:
                     print(f"[FileManager Save] Error: {e}")
 
         if camera1_frames:
-            np.save(cam1_path, np.array(camera1_frames))
+            height, width, _ = camera1_frames[0].shape
+            out1 = cv2.VideoWriter(cam1_path, cv2.VideoWriter_fourcc(*'mp4v'), 30, (width, height))
+            for frame in camera1_frames:
+                out1.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))  
+            out1.release()
+
         if camera2_frames:
-            np.save(cam2_path, np.array(camera2_frames))
+            height, width, _ = camera2_frames[0].shape
+            out2 = cv2.VideoWriter(cam2_path, cv2.VideoWriter_fourcc(*'mp4v'), 30, (width, height))
+            for frame in camera2_frames:
+                out2.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+            out2.release()
         
         #Pose information
         if pose_setting == "Laying":

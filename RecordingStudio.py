@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import copy
 import os
+import cv2
 from queue import Queue
 from src.utils.cameramanager import  CameraManager
 from src.utils import *
@@ -477,12 +478,12 @@ class IMURecordingStudio(tk.Tk):
         # select_data_frame.grid_columnconfigure(4, weight=1)
         
         # Camera 1 files
-        self.camera1_npy_combobox = ttk.Combobox(select_data_frame, state="disabled", values=[])
-        self.camera1_npy_combobox.grid(row=7, column=0, columnspan=3, sticky='ew', padx=5)
+        self.camera1_mp4_combobox = ttk.Combobox(select_data_frame, state="disabled", values=[])
+        self.camera1_mp4_combobox.grid(row=7, column=0, columnspan=3, sticky='ew', padx=5)
 
         # Camera 2 files
-        self.camera2_npy_combobox = ttk.Combobox(select_data_frame, state="disabled", values=[])
-        self.camera2_npy_combobox.grid(row=8, column=0, columnspan=3, sticky='ew', padx=5)
+        self.camera2_mp4_combobox = ttk.Combobox(select_data_frame, state="disabled", values=[])
+        self.camera2_mp4_combobox.grid(row=8, column=0, columnspan=3, sticky='ew', padx=5)
 
         # Button for camera files
         #load_camera_button = ttk.Button(select_data_frame, text="Load Camera Files", command=self.load_camera_folder)
@@ -1422,58 +1423,59 @@ class IMURecordingStudio(tk.Tk):
             self.update_visualization_plots(current - 1)
         self.after(10, self.auto_decrease_frame)  
 
-    def load_camera_folder(self):
-        folder = filedialog.askdirectory(title="Select Folder with NPY camera files")
+    """def load_camera_folder(self):
+        folder = filedialog.askdirectory(title="Select Folder with mp4 camera files")
         if not folder:
             return
 
-        npy_files = [f for f in os.listdir(folder) if f.endswith(".npy")]
-        npy_paths = [os.path.join(folder, f) for f in npy_files]
+        mp4_files = [f for f in os.listdir(folder) if f.endswith(".mp4")]
+        mp4_paths = [os.path.join(folder, f) for f in mp4_files]
 
-        if not npy_paths:
-            print("No .npy files found.")
+        if not mp4_paths:
+            print("No .mp4 files found.")
             return
 
-        self.camera_npy_files = dict(zip(npy_files, npy_paths))  
+        self.camera_mp4_files = dict(zip(mp4_files, mp4_paths))  
 
-        self.camera1_npy_combobox['values'] = npy_files
-        self.camera2_npy_combobox['values'] = npy_files
-        self.camera1_npy_combobox['state'] = 'readonly'
-        self.camera2_npy_combobox['state'] = 'readonly'
+        self.camera1_mp4_combobox['values'] = mp4_files
+        self.camera2_mp4_combobox['values'] = mp4_files
+        self.camera1_mp4_combobox['state'] = 'readonly'
+        self.camera2_mp4_combobox['state'] = 'readonly'
 
         # Setting default values
-        self.camera1_npy_combobox.set(npy_files[0])
-        if len(npy_files) > 1:
-            self.camera2_npy_combobox.set(npy_files[1])
+        self.camera1_mp4_combobox.set(mp4_files[0])
+        if len(mp4_files) > 1:
+            self.camera2_mp4_combobox.set(mp4_files[1])
         else:
-            self.camera2_npy_combobox.set(npy_files[0])
+            self.camera2_mp4_combobox.set(mp4_files[0])
 
         # Event connection
-        self.camera1_npy_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_npy(1))
-        self.camera2_npy_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_npy(2))
+        self.camera1_mp4_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_mp4(1))
+        self.camera2_mp4_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_mp4(2))
 
         # Loading initial camera data
-        self.load_selected_camera_npy(1)
-        self.load_selected_camera_npy(2)
+        self.load_selected_camera_mp4(1)
+        self.load_selected_camera_mp4(2)
 
 
-    def on_select_camera_npy(self, event):
-     selected_file = self.camera_npy_combobox.get()
-     self.load_selected_camera_npy(selected_file)
+    def on_select_camera_mp4(self, event):
+     selected_file = self.camera_mp4_combobox.get()
+     self.load_selected_camera_mp4(selected_file)"""
 
-    def load_selected_camera_npy(self, camera_id):
+    def load_selected_camera_mp4(self, camera_id):
      try:
         if camera_id == 1:
-            filename = self.camera1_npy_combobox.get()
+            filename = self.camera1_mp4_combobox.get()
         else:
-            filename = self.camera2_npy_combobox.get()
+            filename = self.camera2_mp4_combobox.get()
 
-        path = self.camera_npy_files.get(filename)
+        path = self.camera_mp4_files.get(filename)
         if not path:
             print(f"No path found for {filename}")
             return
 
-        data = np.load(path, allow_pickle=True)
+        data = self.read_video_frames(path)  
+
         if camera_id == 1:
             self.loaded_camera1_frames = data
         else:
@@ -1489,6 +1491,17 @@ class IMURecordingStudio(tk.Tk):
         print(f"[Load Camera {camera_id}] Error: {e}")
 
 
+    def read_video_frames(self, video_path):
+        frames = []
+        cam = cv2.VideoCapture(video_path)
+        while cam.isOpened():
+            ret, frame = cam.read()
+            if not ret:
+                break
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frames.append(frame_rgb)
+        cam.release()
+        return frames
 
     def load_recordings(self):
         try:
@@ -1555,8 +1568,8 @@ class IMURecordingStudio(tk.Tk):
         folder_path = self.load_path
         csv_path = os.path.join(folder_path, selected_file)
         base_path = os.path.splitext(csv_path)[0]
-        cam1_path = base_path + "_camera1.npy"
-        cam2_path = base_path + "_camera2.npy"
+        cam1_path = base_path + "_camera1.mp4"
+        cam2_path = base_path + "_camera2.mp4"
 
         # Load IMU data
         if os.path.exists(csv_path):
@@ -1633,37 +1646,37 @@ class IMURecordingStudio(tk.Tk):
         cam2_file = os.path.basename(cam2_path)
 
         if camera1_exists:
-            self.loaded_camera1_frames = np.load(cam1_path)
+            self.loaded_camera1_frames = self.read_video_frames(cam1_path)
             print(f"Loaded camera1 frames from {cam1_path}")
-            self.camera1_npy_combobox['values'] = [cam1_file]
-            self.camera1_npy_combobox['state'] = 'readonly'
-            self.camera1_npy_combobox.set(cam1_file)
-            self.camera1_npy_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_npy(1))
-            if not hasattr(self, 'camera_npy_files'):
-                self.camera_npy_files = {}
-            self.camera_npy_files[cam1_file] = cam1_path
+            self.camera1_mp4_combobox['values'] = [cam1_file]
+            self.camera1_mp4_combobox['state'] = 'readonly'
+            self.camera1_mp4_combobox.set(cam1_file)
+            self.camera1_mp4_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_mp4(1))
+            if not hasattr(self, 'camera_mp4_files'):
+                self.camera_mp4_files = {}
+            self.camera_mp4_files[cam1_file] = cam1_path
         else:
             self.loaded_camera1_frames = None
-            self.camera1_npy_combobox['values'] = []
-            self.camera1_npy_combobox.set('')
-            self.camera1_npy_combobox['state'] = 'disabled'
+            self.camera1_mp4_combobox['values'] = []
+            self.camera1_mp4_combobox.set('')
+            self.camera1_mp4_combobox['state'] = 'disabled'
             print(f"Camera1 file not found: {cam1_path}")
 
         if camera2_exists:
-            self.loaded_camera2_frames = np.load(cam2_path)
+            self.loaded_camera2_frames = self.read_video_frames(cam2_path)
             print(f"Loaded camera2 frames from {cam2_path}")
-            self.camera2_npy_combobox['values'] = [cam2_file]
-            self.camera2_npy_combobox['state'] = 'readonly'
-            self.camera2_npy_combobox.set(cam2_file)
-            self.camera2_npy_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_npy(2))
-            if not hasattr(self, 'camera_npy_files'):
-                self.camera_npy_files = {}
-            self.camera_npy_files[cam2_file] = cam2_path
+            self.camera2_mp4_combobox['values'] = [cam2_file]
+            self.camera2_mp4_combobox['state'] = 'readonly'
+            self.camera2_mp4_combobox.set(cam2_file)
+            self.camera2_mp4_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_mp4(2))
+            if not hasattr(self, 'camera_mp4_files'):
+                self.camera_mp4_files = {}
+            self.camera_mp4_files[cam2_file] = cam2_path
         else:
             self.loaded_camera2_frames = None
-            self.camera2_npy_combobox['values'] = []
-            self.camera2_npy_combobox.set('')
-            self.camera2_npy_combobox['state'] = 'disabled'
+            self.camera2_mp4_combobox['values'] = []
+            self.camera2_mp4_combobox.set('')
+            self.camera2_mp4_combobox['state'] = 'disabled'
             print(f"Camera2 file not found: {cam2_path}")
 
         # Update slider for IMU frames
