@@ -11,16 +11,16 @@ class FileManager:
         self.file_path = file_path
         self.file = None
        
-    def save_recording(self, data_queue, imu_ordered_configuration, patient_id, exercise_name, pose_setting):
-        
+    
+    def save_recording(self, data_queue, imu_ordered_configuration, patient_id, exercise_name, pose_setting, label_ID):
         # Count existing recordings
-        pattern = os.path.join(self.file_path, f"{patient_id}_{exercise_name}_*")
+        pattern = os.path.join(self.file_path, f"{patient_id}_{pose_setting}_{exercise_name}_{label_ID}_*")
         existing_files = glob.glob(pattern + ".csv") 
         repeat_number = len(existing_files) + 1
         repeat_str = str(repeat_number).zfill(2)
 
         timestamp_str = time.strftime('%Y%m%d_%H%M%S')
-        filename_base = f"{patient_id}_{exercise_name}_{repeat_str}_{timestamp_str}"
+        filename_base = f"{patient_id}_{pose_setting}_{exercise_name}_{label_ID}_{repeat_str}_{timestamp_str}"
 
         imu_csv_path = os.path.join(self.file_path, f"{filename_base}.csv")
         imu_txt_path = os.path.join(self.file_path, f"{filename_base}.txt")
@@ -135,7 +135,7 @@ class FileManager:
             out2.release()
         
         #Pose information
-        if pose_setting == "Laying":
+        if pose_setting == "Lying":
             pose_code ="L"
         elif pose_setting == "Sitting":
             pose_code = "S"

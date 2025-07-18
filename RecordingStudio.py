@@ -195,19 +195,29 @@ class IMURecordingStudio(tk.Tk):
         # Exercise List Label
         exercise_list_label=ttk.Label(frame, text='Exercise:')
         exercise_list_label.grid(row=3, column=0, columnspan=1, padx=10, pady=10, sticky='w')
-        # List for selectring the exercises - for metadata.
-        self.exercises_list=ttk.Combobox(frame, text ='', state='readonly' , values=self.EXERCISES,)
-        self.exercises_list.grid(row=3, column=2, rowspan=1, padx=10, pady=10, sticky='w')
+
+        # Combobox for exercises
+        self.exercises_list = ttk.Combobox(frame, state='readonly')
+        self.exercises_list.grid(row=3, column=2, padx=10, pady=10, sticky='w')
+        self.exercises_list.bind("<<ComboboxSelected>>", self.update_subcategories_list)
+
+        # Label ID
+        subcategory_label = ttk.Label(frame, text='Label ID:')
+        subcategory_label.grid(row=4, column=0, padx=10, pady=10, sticky='w')
+
+        # Combobox for Label ID
+        self.sub_exercises_list = ttk.Combobox(frame, state='readonly')
+        self.sub_exercises_list.grid(row=4, column=2, padx=10, pady=10, sticky='w')
 
         # Create Start/ Stop buttons in functionality_frame
         start_recording=ttk.Button(frame, text="Start Recording", command = self.start_recording )
-        start_recording.grid(row=4, column=0, columnspan=1, padx=10, pady=10, sticky='w')
+        start_recording.grid(row=5, column=0, columnspan=1, padx=10, pady=10, sticky='w')
         stop_recording=ttk.Button(frame, text="Stop Recording", command= self.stop_recording)
-        stop_recording.grid(row=4, column=2, columnspan=1, padx=10, pady=10, sticky='w')
+        stop_recording.grid(row=5, column=2, columnspan=1, padx=10, pady=10, sticky='w')
 
         #Create a label sto shop if in recording/ready mode
         self.exercise_list_label=ttk.Label(frame, font= 10, text='Ready for recording', background= 'yellow' )
-        self.exercise_list_label.grid(row=5, column=0, columnspan=1, padx=10, pady=10, sticky='w')
+        self.exercise_list_label.grid(row=6, column=0, columnspan=1, padx=10, pady=10, sticky='w')
 
     
     def create_camera_views(self, frame):
@@ -270,9 +280,10 @@ class IMURecordingStudio(tk.Tk):
         imu_reset_heading_button =ttk.Button(frame, text="Reset Heading", command=self.reset_heading)
         imu_reset_heading_button.grid(row=0,column=0, columnspan=1)
 
-        self.imu_pose_selection=ttk.Combobox(frame, state="readonly", values = ["Sitting","Laying","Standing"])
+        self.imu_pose_selection=ttk.Combobox(frame, state="readonly", values = ["Sitting","Lying","Standing"])
         self.imu_pose_selection.set("Sitting")
         self.imu_pose_selection.grid(row=0,column=3, columnspan=1 )
+        self.imu_pose_selection.bind("<<ComboboxSelected>>", self.update_exercises_list)
 
         # self.imu_pose_selection=ttk.Combobox(frame, state="readonly", values = ["Sitting","Laying"])
         # self.imu_pose_selection.set("Sitting")
@@ -379,6 +390,20 @@ class IMURecordingStudio(tk.Tk):
             self.save_directory_var.set(directory)
             self.selected_data_dir = FileManager(directory)
 
+    def update_exercises_list(self, event=None):
+        pose = self.imu_pose_selection.get()
+        exercises = list(self.EXERCISES.get(pose, {}).keys())
+        self.exercises_list['values'] = exercises
+        self.exercises_list.set(exercises[0])
+        self.update_subcategories_list()
+        
+
+    def update_subcategories_list(self, event=None):
+        pose = self.imu_pose_selection.get()
+        exercise = self.exercises_list.get()
+        label_ID = self.EXERCISES.get(pose, {}).get(exercise, [])
+        self.sub_exercises_list['values'] = label_ID
+        self.sub_exercises_list.set(label_ID[0])
         
 
     def check_patient_id(self):
@@ -854,10 +879,10 @@ class IMURecordingStudio(tk.Tk):
                 selected_values.append(value)
 
     # If no conflicts, lock configuration
-        if combobox in self.imu_comboboxes:
-            combobox['state'] = 'disable'
-            self.imu_lock_status = True
-            print("IMU configuration locked successfully.")
+            if combobox in self.imu_comboboxes:
+               combobox['state'] = 'disable'
+               self.imu_lock_status = True
+        print("IMU configuration locked successfully.")
 
     def unlock_imu_configuration(self):
         for combo in self.imu_comboboxes:
@@ -1037,8 +1062,10 @@ class IMURecordingStudio(tk.Tk):
         self.imu_ordered_configuration,
         self.patients_id_field.get(),
         self.exercises_list.get(),
-        self.imu_pose_selection.get() #Sitting or Laying
+        self.imu_pose_selection.get(), #Sitting, Lying, Standing
+        self.sub_exercises_list.get() 
      )
+
      print("Recording saved.")
 
      self.camera_list_1['state'] = 'readonly'
@@ -1277,8 +1304,8 @@ class IMURecordingStudio(tk.Tk):
     def get_pose(self, ax=None, canvas =None):
         if self.imu_pose_selection.get() == 'Sitting':
             self.joints = DEFAULT_SETTINGS.skeleton_pose_sitting_joints()
-        elif self.imu_pose_selection.get()== 'Laying':
-            self.joints = DEFAULT_SETTINGS.skeleton_pose_laying_joints()
+        elif self.imu_pose_selection.get()== 'Lying':
+            self.joints = DEFAULT_SETTINGS.skeleton_pose_lying_joints()
         else:
             self.joints = DEFAULT_SETTINGS.skeleton_pose_standing_joints()
         
@@ -1584,7 +1611,7 @@ class IMURecordingStudio(tk.Tk):
                         if last_line.startswith("#POSE="):
                             pose_code = last_line.split("=")[-1]
                             if pose_code == "L":
-                                self.imu_pose_selection.set("Laying")
+                                self.imu_pose_selection.set("Lying")
                             elif pose_code=="S":
                                 self.imu_pose_selection.set("Sitting")
                             else:
