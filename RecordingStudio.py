@@ -179,7 +179,7 @@ class IMURecordingStudio(tk.Tk):
         self.save_directory_field=ttk.Label(frame, textvariable =self.save_directory_var, wraplength=150)
         self.save_directory_field.grid(row=0, column=2, columnspan=1, padx=10, pady=10, sticky='w')
         # Save direcoty selection button
-        save_directory_button=ttk.Button(frame, text='Save to...', command=self.update_saving_directory)
+        save_directory_button=ttk.Button(frame, text='Save to...', command=lambda: Thread(target=self.update_saving_directory, daemon=True).start())
         save_directory_button.grid(row=1, column=2, columnspan=1, padx=10, pady=10, sticky='w')
 
         # Patient's ID label
@@ -772,7 +772,7 @@ class IMURecordingStudio(tk.Tk):
                 cameraview_axis.imshow(camera_frame)
                 cameraview_axis.axis('off')
                 cameraview_canvas.draw()                
-            # time.sleep(0.001)
+            time.sleep(0.01)
             # print("Running")
 
             #if not self.thread_flag[threadNum]:
@@ -1268,7 +1268,7 @@ class IMURecordingStudio(tk.Tk):
                 self.imu.reset_heading()
                 self.reset_heading_flag = False
 
-            #time.sleep(0.02)  
+            time.sleep(0.01)  
 
         except Exception as e:
             print(f"[IMU plot] Error: {e}")
@@ -1684,6 +1684,10 @@ class IMURecordingStudio(tk.Tk):
             self.camera_mp4_files[cam1_file] = cam1_path
         else:
             self.loaded_camera1_frames = None
+            self.ax3.clear()
+            self.ax3.set_title("Front View")
+            self.ax3.axis('off')
+            self.canvas3.draw()
             self.camera1_mp4_combobox['values'] = []
             self.camera1_mp4_combobox.set('')
             self.camera1_mp4_combobox['state'] = 'disabled'
@@ -1701,6 +1705,10 @@ class IMURecordingStudio(tk.Tk):
             self.camera_mp4_files[cam2_file] = cam2_path
         else:
             self.loaded_camera2_frames = None
+            self.ax4.clear()
+            self.ax4.set_title("Side View")
+            self.ax4.axis('off')
+            self.canvas4.draw()
             self.camera2_mp4_combobox['values'] = []
             self.camera2_mp4_combobox.set('')
             self.camera2_mp4_combobox['state'] = 'disabled'
