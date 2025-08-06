@@ -4,6 +4,9 @@ import numpy as np
 import time
 import glob
 import cv2
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__) 
 
 
 class FileManager:
@@ -118,7 +121,7 @@ class FileManager:
                         camera2_frames.append(data['frame_cam2'])
 
                 except Exception as e:
-                    print(f"[FileManager Save] Error: {e}")
+                    logger.error(f"Error: {e}")
 
         if camera1_frames:
             height, width, _ = camera1_frames[0].shape
@@ -145,4 +148,4 @@ class FileManager:
             writer = csv.writer(csvfile)
             writer.writerow([f"#POSE={pose_code}"])
 
-        print(f"Saved files: {imu_csv_path}, {imu_txt_path}, {cam1_path}, {cam2_path}")
+        logger.info(f"Saved files: {imu_csv_path}, {imu_txt_path}, {cam1_path}, {cam2_path}")
