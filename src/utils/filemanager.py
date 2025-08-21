@@ -3,6 +3,10 @@ import csv
 import numpy as np
 import time
 import glob
+import cv2
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__) 
 
 
 class FileManager:
@@ -10,21 +14,21 @@ class FileManager:
         self.file_path = file_path
         self.file = None
        
-    def save_recording(self, data_queue, imu_ordered_configuration, patient_id, exercise_name, pose_setting):
-        
+    
+    def save_recording(self, data_queue, imu_ordered_configuration, patient_id, exercise_name, pose_setting, label_ID):
         # Count existing recordings
-        pattern = os.path.join(self.file_path, f"{patient_id}_{exercise_name}_*")
+        pattern = os.path.join(self.file_path, f"{patient_id}_{pose_setting}_{exercise_name}_{label_ID}_*")
         existing_files = glob.glob(pattern + ".csv") 
         repeat_number = len(existing_files) + 1
         repeat_str = str(repeat_number).zfill(2)
 
         timestamp_str = time.strftime('%Y%m%d_%H%M%S')
-        filename_base = f"{patient_id}_{exercise_name}_{repeat_str}_{timestamp_str}"
+        filename_base = f"{patient_id}_{pose_setting}_{exercise_name}_{label_ID}_{repeat_str}_{timestamp_str}"
 
         imu_csv_path = os.path.join(self.file_path, f"{filename_base}.csv")
         imu_txt_path = os.path.join(self.file_path, f"{filename_base}.txt")
-        cam1_path = os.path.join(self.file_path, f"{filename_base}_camera1.npy")
-        cam2_path = os.path.join(self.file_path, f"{filename_base}_camera2.npy")
+        cam1_path = os.path.join(self.file_path, f"{filename_base}_camera1.mp4")
+        cam2_path = os.path.join(self.file_path, f"{filename_base}_camera2.mp4")
 
         camera1_frames = []
         camera2_frames = []
@@ -117,17 +121,31 @@ class FileManager:
                         camera2_frames.append(data['frame_cam2'])
 
                 except Exception as e:
-                    print(f"[FileManager Save] Error: {e}")
+                    logger.error(f"Error: {e}")
 
         if camera1_frames:
-            np.save(cam1_path, np.array(camera1_frames))
+            height, width, _ = camera1_frames[0].shape
+            out1 = cv2.VideoWriter(cam1_path, cv2.VideoWriter_fourcc(*'mp4v'), 30, (width, height))
+            for frame in camera1_frames:
+                out1.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))  
+            out1.release()
+
         if camera2_frames:
-            np.save(cam2_path, np.array(camera2_frames))
+            height, width, _ = camera2_frames[0].shape
+            out2 = cv2.VideoWriter(cam2_path, cv2.VideoWriter_fourcc(*'mp4v'), 30, (width, height))
+            for frame in camera2_frames:
+                out2.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+            out2.release()
         
         #Pose information
-        pose_code = "L" if pose_setting == "Laying" else "S"
+        if pose_setting == "Lying":
+            pose_code ="L"
+        elif pose_setting == "Sitting":
+            pose_code = "S"
+        else:
+            pose_code = "ST"   #Standing
         with open(imu_csv_path, 'a', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow([f"#POSE={pose_code}"])
 
-        print(f"Saved files: {imu_csv_path}, {imu_txt_path}, {cam1_path}, {cam2_path}")
+        logger.info(f"Saved files: {imu_csv_path}, {imu_txt_path}, {cam1_path}, {cam2_path}")

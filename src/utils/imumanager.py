@@ -5,6 +5,9 @@ from IPython import get_ipython
 from pynput import keyboard
 import csv
 import time
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 class IMUManager:
     xdpcHandler = XdpcHandler()
@@ -34,33 +37,33 @@ class IMUManager:
 
         xdpcHandler.scanForDots()
         if len(xdpcHandler.detectedDots()) == 0:
-            print("No Movella DOT device(s) found. Aborting.")
+            logger.warning("No Movella DOT device(s) found. Aborting.")
             xdpcHandler.cleanup()
             # exit(-1)
 
         xdpcHandler.connectDots()
 
         if len(xdpcHandler.connectedDots()) == 0:
-            print("Could not connect to any Movella DOT device(s). Aborting.")
+            logger.warning("Could not connect to any Movella DOT device(s). Aborting.")
             xdpcHandler.cleanup()
             # exit(-1)
 
         for device in xdpcHandler.connectedDots():
             filterProfiles = device.getAvailableFilterProfiles()
-            print("Available filter profiles:")
+            logger.info("Available filter profiles:")
             for f in filterProfiles:
-                print(f.label())
+                logger.debug(f.label())
 
-            print(f"Current profile: {device.onboardFilterProfile().label()}")
+            logger.info(f"Current profile: {device.onboardFilterProfile().label()}")
             if device.setOnboardFilterProfile("General"):
-                print("Successfully set profile to General")
+                logger.info("Successfully set profile to General")
             else:
-                print("Setting filter profile failed!")
+                logger.error("Setting filter profile failed!")
                 
             if device.setOutputRate(self.frame_rate):
-                print(f"Successfully set output rate to {self.frame_rate} Hz")
+                logger.info(f"Successfully set output rate to {self.frame_rate} Hz")
             else:
-                print("Setting output rate failed!")
+                logger.error("Setting output rate failed!")
                 
         return xdpcHandler
     
@@ -77,74 +80,73 @@ class IMUManager:
         manager = xdpcHandler.manager()
         deviceList = xdpcHandler.connectedDots()
 
-        print(f"[SYNC] Preparing to sync {len(deviceList)} devices.")
+        logger.info(f"Preparing to sync {len(deviceList)} devices.")
     
         # Exit from measurement mode
-        print("[SYNC] Stopping measurement on all devices...")
+        logger.info("Stopping measurement on all devices...")
         for device in deviceList:
             try:
                 device.stopMeasurement()
-                print(f"[SYNC] Stopped measurement on {device.bluetoothAddress()}")
+                logger.info(f"Stopped measurement on {device.bluetoothAddress()}")
             except Exception as e:
-                print(f"[SYNC] Could not stop measurement on {device.bluetoothAddress()}: {e}")
+                logger.error(f"Could not stop measurement on {device.bluetoothAddress()}: {e}")
 
         # Stop syncing
-        print("[SYNC] Forcing stopSync...")
+        logger.info("Forcing stopSync...")
         try:
             manager.stopSync()
         except Exception as e:
-            print(f"[SYNC] stopSync error (ignored): {e}")
+            logger.warning(f"stopSync error (ignored): {e}")
 
         time.sleep(1)  # give SDK time to reset states
 
         # Statr syncing
-        print(f"[SYNC] Starting sync... Root node: {deviceList[-1].bluetoothAddress()}")
+        logger.info(f"Starting sync... Root node: {deviceList[-1].bluetoothAddress()}")
         success = manager.startSync(deviceList[-1].bluetoothAddress())
 
         if success:
-            print("[SYNC] Devices synchronized successfully.")
+            logger.info("Devices synchronized successfully.")
         else:
-            print(f"[SYNC] Could not start sync. Reason: {manager.lastResultText()}")
+            logger.warning(f"Could not start sync. Reason: {manager.lastResultText()}")
     
         return success
 
     def start_measuring_mode(self):
         xdpcHandler = self.devices
-        print("\nStarting measurement...")
+        logger.info("Starting measurement...")
         for device in xdpcHandler.connectedDots():
             if not device.startMeasurement(movelladot_pc_sdk.XsPayloadMode_CustomMode4):
-                print(f"Could not put device into measurement mode. Reason: {device.lastResultText()}")
+                logger.warning(f"Could not put device into measurement mode. Reason: {device.lastResultText()}")
                 continue       
 
     def stop_measuring_mode(self):
         xdpcHandler = self.devices
-        print("\nStopping measurement...")
+        logger.info("Stopping measurement...")
         for device in xdpcHandler.connectedDots():
             if not device.stopMeasurement():
-                print("Failed to stop measurement.")
+                logger.error("Failed to stop measurement.")
             if not device.disableLogging():
-                print("Failed to disable logging.")
+                logger.error("Failed to disable logging.")
 
     def reset_heading_default(self):
         xdpcHandler = self.devices
         for device in xdpcHandler.connectedDots():
-            print(f"\nResetting heading to default for device {device.portInfo().bluetoothAddress()}: ", end="", flush=True)
+            logger.info(f"Resetting heading to default for device {device.portInfo().bluetoothAddress()}: ")
             if device.resetOrientation(movelladot_pc_sdk.XRM_DefaultAlignment):
-                print("OK", end="", flush=True)
+                logger.info("OK")
                 self.reset_heading_status = False
             else:
-                print(f"NOK: {device.lastResultText()}", end="", flush=True)
-        print("\n", end="", flush=True)
+                logger.warning(f"NOK: {device.lastResultText()}")
+        
 
     def reset_heading(self):   
         xdpcHandler = self.devices
         for device in xdpcHandler.connectedDots():
-            print(f"\nResetting heading for device {device.portInfo().bluetoothAddress()}: ", end="", flush=True)
+            logger.info(f"Resetting heading for device {device.portInfo().bluetoothAddress()}: ")
             if device.resetOrientation(movelladot_pc_sdk.XRM_Heading):
-                print("OK", end="", flush=True)
+                logger.info("OK")
             else:
-                print(f"NOK: {device.lastResultText()}", end="", flush=True)
-        print("\n", end="", flush=True) 
+                logger.warning(f"NOK: {device.lastResultText()}")
         self.reset_heading_status = True
         
     def get_measurments(self):
@@ -199,7 +201,7 @@ class IMUManager:
 
     def calibrate(self):
         self.get_quaternions_inverse()
-        return print("Inverse Quaternions Saved")
+        return logger.info("Inverse Quaternions Saved")
 
 
     def get_quaternions_inverse(self):
@@ -213,6 +215,7 @@ class IMUManager:
 
                 self.calibration_inverse[dev,:] = np.array([self.quat_data[dev,0], -self.quat_data[dev,1], -self.quat_data[dev,2], -self.quat_data[dev,3]])/squared_sum
                 self.calibration_status[dev] = True
+                logger.debug(f"IMU {dev} reference quaternion: {self.quat_data[dev, :]}")
             else:
-                print(f"Data of IMU number {dev} are empty.")
+                logger.warning(f"Data of IMU number {dev} are empty.")
         return

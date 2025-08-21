@@ -12,9 +12,14 @@ import numpy as np
 import pandas as pd
 import copy
 import os
+import cv2
 from queue import Queue
 from src.utils.cameramanager import  CameraManager
 from src.utils import *
+from src.utils.logger import get_logger
+
+
+logger = get_logger(__name__)
 
 
 # Main application class for IMU Recording Studio
@@ -63,10 +68,15 @@ class IMURecordingStudio(tk.Tk):
 
 
         
-        # Thread explanation: #Thread[0] and Thread[1] are used by webcams to stream upon pressing the Start/Stop button
-        # Thread[2] will be used when Run/Stop Streaming button is pressed to stream IMU data in the IMU vector view.
-        # When Start Recording Button is pressed -> Thread[0] will be used to Collect data from all sensors, Thread[1] will be used to stream webcam 1, 
-        # Thread[2] will be used to stream webcam 2, Thread[3] will be used to plot IMU data
+        # Thread explanation:
+        # Thread[0] and Thread[1] are used by webcams to stream upon pressing the Start/Stop button
+        # Thread[2] is used when Run/Stop Streaming button is pressed to stream IMU data in the IMU Vector View
+        # When the Start Recording button is pressed:
+        #  - Thread[0] and Thread[1]: stream webcam 1 and webcam 2
+        #  - Thread[3]: plot IMU data
+        #  - Thread[4]: update camera figures in GUI
+        #  - Thread[5]: collect data from both IMUs and cameras 
+
 
         self.thread = [None, None, None, None, None, None] # Stores threads
         self.thread_flag = [False, False, False, False, False, False] # Flag for stopping thread
@@ -78,6 +88,14 @@ class IMURecordingStudio(tk.Tk):
         # Initate a Tab control
         self.tabControl = ttk.Notebook(self)
         
+        def closeWindow():
+            self.disconnect_IMU_sensors()
+            self.disconnect_webcams()
+            self.destroy()
+            logger.info("EXIT")
+
+        self.protocol('WM_DELETE_WINDOW', closeWindow)
+
         # Initiate Main tab
         self.main_tab = ttk.Frame(self.tabControl)
         self.tabControl.add(self.main_tab, text='Main')
@@ -132,7 +150,7 @@ class IMURecordingStudio(tk.Tk):
         imu_frame = ttk.LabelFrame(imu_container, text="IMU Vector View")
         imu_frame.grid(row=0, column=0, sticky="nsew")
 
-        # IMU Vector Control Frame (κάτω από το plot)
+        # IMU Vector Control Frame
         IMU_control_frame = ttk.LabelFrame(imu_container)
         IMU_control_frame.grid(row=1, column=0, pady=(5, 0), sticky="ew")
 
@@ -165,7 +183,7 @@ class IMURecordingStudio(tk.Tk):
         self.save_directory_field=ttk.Label(frame, textvariable =self.save_directory_var, wraplength=150)
         self.save_directory_field.grid(row=0, column=2, columnspan=1, padx=10, pady=10, sticky='w')
         # Save direcoty selection button
-        save_directory_button=ttk.Button(frame, text='Save to...', command=self.update_saving_directory)
+        save_directory_button=ttk.Button(frame, text='Save to...', command=lambda: Thread(target=self.update_saving_directory, daemon=True).start())
         save_directory_button.grid(row=1, column=2, columnspan=1, padx=10, pady=10, sticky='w')
 
         # Patient's ID label
@@ -181,19 +199,29 @@ class IMURecordingStudio(tk.Tk):
         # Exercise List Label
         exercise_list_label=ttk.Label(frame, text='Exercise:')
         exercise_list_label.grid(row=3, column=0, columnspan=1, padx=10, pady=10, sticky='w')
-        # List for selectring the exercises - for metadata.
-        self.exercises_list=ttk.Combobox(frame, text ='', state='readonly' , values=self.EXERCISES,)
-        self.exercises_list.grid(row=3, column=2, rowspan=1, padx=10, pady=10, sticky='w')
+
+        # Combobox for exercises
+        self.exercises_list = ttk.Combobox(frame, state='readonly')
+        self.exercises_list.grid(row=3, column=2, padx=10, pady=10, sticky='w')
+        self.exercises_list.bind("<<ComboboxSelected>>", self.update_subcategories_list)
+
+        # Label ID
+        subcategory_label = ttk.Label(frame, text='Label ID:')
+        subcategory_label.grid(row=4, column=0, padx=10, pady=10, sticky='w')
+
+        # Combobox for Label ID
+        self.sub_exercises_list = ttk.Combobox(frame, state='readonly')
+        self.sub_exercises_list.grid(row=4, column=2, padx=10, pady=10, sticky='w')
 
         # Create Start/ Stop buttons in functionality_frame
         start_recording=ttk.Button(frame, text="Start Recording", command = self.start_recording )
-        start_recording.grid(row=4, column=0, columnspan=1, padx=10, pady=10, sticky='w')
+        start_recording.grid(row=5, column=0, columnspan=1, padx=10, pady=10, sticky='w')
         stop_recording=ttk.Button(frame, text="Stop Recording", command= self.stop_recording)
-        stop_recording.grid(row=4, column=2, columnspan=1, padx=10, pady=10, sticky='w')
+        stop_recording.grid(row=5, column=2, columnspan=1, padx=10, pady=10, sticky='w')
 
         #Create a label sto shop if in recording/ready mode
         self.exercise_list_label=ttk.Label(frame, font= 10, text='Ready for recording', background= 'yellow' )
-        self.exercise_list_label.grid(row=5, column=0, columnspan=1, padx=10, pady=10, sticky='w')
+        self.exercise_list_label.grid(row=6, column=0, columnspan=1, padx=10, pady=10, sticky='w')
 
     
     def create_camera_views(self, frame):
@@ -256,9 +284,10 @@ class IMURecordingStudio(tk.Tk):
         imu_reset_heading_button =ttk.Button(frame, text="Reset Heading", command=self.reset_heading)
         imu_reset_heading_button.grid(row=0,column=0, columnspan=1)
 
-        self.imu_pose_selection=ttk.Combobox(frame, state="readonly", values = ["Sitting","Laying"])
+        self.imu_pose_selection=ttk.Combobox(frame, state="readonly", values = ["Sitting","Lying","Standing"])
         self.imu_pose_selection.set("Sitting")
         self.imu_pose_selection.grid(row=0,column=3, columnspan=1 )
+        self.imu_pose_selection.bind("<<ComboboxSelected>>", self.update_exercises_list)
 
         # self.imu_pose_selection=ttk.Combobox(frame, state="readonly", values = ["Sitting","Laying"])
         # self.imu_pose_selection.set("Sitting")
@@ -359,12 +388,26 @@ class IMURecordingStudio(tk.Tk):
 
     def update_saving_directory(self):
         directory = filedialog.askdirectory()
-        print(f"[DEBUG] Folder Slected: {directory}")
+        logger.debug(f"Folder Selected: {directory}")
         if directory:
             self.save_path = directory
             self.save_directory_var.set(directory)
             self.selected_data_dir = FileManager(directory)
 
+    def update_exercises_list(self, event=None):
+        pose = self.imu_pose_selection.get()
+        exercises = list(self.EXERCISES.get(pose, {}).keys())
+        self.exercises_list['values'] = exercises
+        self.exercises_list.set(exercises[0])
+        self.update_subcategories_list()
+        
+
+    def update_subcategories_list(self, event=None):
+        pose = self.imu_pose_selection.get()
+        exercise = self.exercises_list.get()
+        label_ID = self.EXERCISES.get(pose, {}).get(exercise, [])
+        self.sub_exercises_list['values'] = label_ID
+        self.sub_exercises_list.set(label_ID[0])
         
 
     def check_patient_id(self):
@@ -382,7 +425,7 @@ class IMURecordingStudio(tk.Tk):
                 except Exception as e:
                     self.patient_id_check_label['text'] = 'ID already in use!'
                     self.patient_id_check_label['background'] = 'orange'
-                    print(f'This patient ID already exists. Error: {e}')
+                    logger.warning(f'This patient ID already exists. Error: {e}')
         return True
 
     def create_visualization_tab(self):
@@ -464,12 +507,12 @@ class IMURecordingStudio(tk.Tk):
         # select_data_frame.grid_columnconfigure(4, weight=1)
         
         # Camera 1 files
-        self.camera1_npy_combobox = ttk.Combobox(select_data_frame, state="disabled", values=[])
-        self.camera1_npy_combobox.grid(row=7, column=0, columnspan=3, sticky='ew', padx=5)
+        self.camera1_mp4_combobox = ttk.Combobox(select_data_frame, state="disabled", values=[])
+        self.camera1_mp4_combobox.grid(row=7, column=0, columnspan=3, sticky='ew', padx=5)
 
         # Camera 2 files
-        self.camera2_npy_combobox = ttk.Combobox(select_data_frame, state="disabled", values=[])
-        self.camera2_npy_combobox.grid(row=8, column=0, columnspan=3, sticky='ew', padx=5)
+        self.camera2_mp4_combobox = ttk.Combobox(select_data_frame, state="disabled", values=[])
+        self.camera2_mp4_combobox.grid(row=8, column=0, columnspan=3, sticky='ew', padx=5)
 
         # Button for camera files
         #load_camera_button = ttk.Button(select_data_frame, text="Load Camera Files", command=self.load_camera_folder)
@@ -542,7 +585,14 @@ class IMURecordingStudio(tk.Tk):
 
         load_button = ttk.Button(select_data_frame, text="Load Data", command=lambda: Thread(target=self.load_recordings, daemon=True).start())
         load_button.grid(row=6, column=2, padx=5, pady=5, columnspan=1, sticky='new')
-        
+
+        # Show calibrated quaternions
+        self.show_calibrated_visual_checkbox_var = tk.BooleanVar()
+        self.show_calibrated_visual_checkbox_var.set(False)
+
+        self.select_show_calibrated_tickbox = ttk.Checkbutton(select_data_frame,text="Show Calibrated", variable=self.show_calibrated_visual_checkbox_var, onvalue=True, offvalue=False,command=self.trigger_update)
+        self.select_show_calibrated_tickbox.grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky='w')
+
         #self.update_plots_button = ttk.Button(select_data_frame, text="Update Plots", command=self.update_visualization_plots)
         #self.update_plots_button.grid(row=6, column=2, padx=10, pady=10, columnspan=1, sticky='new')
 
@@ -578,7 +628,7 @@ class IMURecordingStudio(tk.Tk):
 
     def update_camera_view_list(self):
         #Update the list with the number of available cameras
-        print(f"Number of detected cameras: {len(self.idxInitiatedCameras)}")
+        logger.info(f"Number of detected cameras: {len(self.idxInitiatedCameras)}")
         self.camera_list_1['values'] = self.idxInitiatedCameras
         self.camera_list_1['state'] = 'readonly'
         self.camera_list_2['values'] = self.idxInitiatedCameras
@@ -600,9 +650,9 @@ class IMURecordingStudio(tk.Tk):
             if cam.camera.read()[0]:
                 self.InitiatedCameras.append(cam)
                 self.idxInitiatedCameras.append(i)
-                print(f"Camera {i} is working")
+                logger.info(f"Camera {i} is working")
             else:
-                print(f"Camera {i} not available")
+                logger.warning(f"Camera {i} not available")
 
     # Threads for handling camera 1 and camera 2
     def camera1_thread(self):
@@ -612,7 +662,7 @@ class IMURecordingStudio(tk.Tk):
             camera_manager = self.InitiatedCameras[cam_idx]
             camera_manager.streaming = True
         except Exception as e:
-            print(f"[Camera 1 Thread] Could not initialize camera:{e}")
+            logger.error(f"[Camera 1 Thread] Could not initialize camera:{e}")
             return
         
         flag_index =1 if self.recording else 0
@@ -626,7 +676,7 @@ class IMURecordingStudio(tk.Tk):
                     pass
 
             except Exception as e :
-                print (f"[Camera Thread] Error: {e}")
+                logger.error(f"[Camera Thread] Error: {e}")
                 self.latest_frame_cam1 = None
 
         camera_manager.streaming = False
@@ -640,7 +690,7 @@ class IMURecordingStudio(tk.Tk):
             camera_manager = self.InitiatedCameras[cam_idx]
             camera_manager.streaming = True
         except Exception as e:
-            print(f"[Camera 2 Thread] Could not initialize camera: {e}")
+            logger.error(f"[Camera 2 Thread] Could not initialize camera: {e}")
             return
 
         flag_index =3 if self.recording else 1
@@ -654,7 +704,7 @@ class IMURecordingStudio(tk.Tk):
                     pass
 
             except Exception as e:
-                print(f"[Camera2 Thread] Error: {e}") 
+                logger.error(f"[Camera2 Thread] Error: {e}") 
                 self.latest_frame_cam2 = None  
 
         camera_manager.streaming = False
@@ -663,21 +713,21 @@ class IMURecordingStudio(tk.Tk):
 
     def stream_webcam(self): # No very elegant, maybe can be converted to a for loop
         if self.recording:
-            print("Cannot start webcam streaming while recording.")
+            logger.warning("Cannot start webcam streaming while recording.")
             return
         if self.InitiatedCameras==[]:
-            print("No cameras connected")
+            logger.warning("No cameras connected")
             return
         
         cam1_index = self.camera_list_1.get()
         cam2_index = self.camera_list_2.get()
 
         if cam1_index == ''or cam2_index=='':
-            print("Please select both camera views.")
+            logger.warning("Please select both camera views.")
             return
         
         if cam1_index == cam2_index:
-           print("Viewers have the same camera. Please select different cameras.")
+           logger.warning("Viewers have the same camera. Please select different cameras.")
            return
 
         self.InitiatedCameras[int(cam1_index)].streaming = True
@@ -688,14 +738,14 @@ class IMURecordingStudio(tk.Tk):
            self.thread_flag[0] = True
            self.thread[0] = Thread(target=self.camera1_thread)
            self.thread[0].start()
-           print(f"Thread 0 (Camera {cam1_index}) started.")
+           logger.info(f"Thread 0 (Camera {cam1_index}) started.")
 
     # Thread 1: Camera 2
         if self.thread[1] is None or not self.thread[1].is_alive():
            self.thread_flag[1] = True
            self.thread[1] = Thread(target=self.camera2_thread)
            self.thread[1].start()
-           print(f"Thread 1 (Camera {cam2_index}) started.")
+           logger.info(f"Thread 1 (Camera {cam2_index}) started.")
 
     #Start view update threads as detached
         Thread(target=self.update_view, args=(0, cam1_index, self.ax1, self.canvas1)).start()
@@ -705,12 +755,12 @@ class IMURecordingStudio(tk.Tk):
         self.camera_list_1['state'] = 'disabled'
         self.camera_list_2['state'] = 'disabled'
 
-        print("Camera streaming started.")
+        logger.info("Camera streaming started.")
         
 
     def update_view(self, threadNum, cameranumber, cameraview_axis, cameraview_canvas):
         cam_idx = int(cameranumber)
-        print(f"[View] Starting update_view for camera index {cam_idx}")
+        logger.debug(f"[View] Starting update_view for camera index {cam_idx}")
         
         #get frame from camera
         while self.thread_flag[threadNum] and self.InitiatedCameras[int(cameranumber)].streaming:# update axis
@@ -726,24 +776,24 @@ class IMURecordingStudio(tk.Tk):
                 cameraview_axis.imshow(camera_frame)
                 cameraview_axis.axis('off')
                 cameraview_canvas.draw()                
-            # time.sleep(0.001)
+            time.sleep(0.01)
             # print("Running")
 
             #if not self.thread_flag[threadNum]:
             #self.InitiatedCameras[int(cameranumber)].streaming = False
         # print('Run')
            except Exception as e:
-               print(f"[Thread{threadNum}] Error while updating view: {e}")
+               logger.error(f"[Thread{threadNum}] Error while updating view: {e}")
                
-        print(f"Stoped reading from camera {cameranumber}")
+        logger.info(f"Stoped reading from camera {cameranumber}")
         
         
     def start_stop_button_press(self):
         if self.recording:
-            print("Cannot start/stop streaming during recording.")
+            logger.warning("Cannot start/stop streaming during recording.")
 
         if self.InitiatedCameras == []:
-           print("No cameras connected.")
+           logger.warning("No cameras connected.")
            return
         
         cam1=int(self.camera_list_1.get())
@@ -756,14 +806,14 @@ class IMURecordingStudio(tk.Tk):
            self.InitiatedCameras[cam2].streaming = False
            self.camera_list_1['state'] = 'readonly'
            self.camera_list_2['state'] = 'readonly'
-           print("Streaming stopped.")
+           logger.info("Streaming stopped.")
         else:
            self.InitiatedCameras[cam1].streaming = True
            self.InitiatedCameras[cam2].streaming = True
            self.camera_list_1['state'] = 'disabled'
            self.camera_list_2['state'] = 'disabled'
            self.stream_webcam()
-           print("Streaming started.")
+           logger.info("Streaming started.")
         
         
     def conenct_IMU_sensors(self):
@@ -804,7 +854,7 @@ class IMURecordingStudio(tk.Tk):
 
             self.imu_battery_update_button.destroy()
         else:
-            print("No IMU sensors are connected")
+            logger.warning("No IMU sensors are connected")
 
     def imu_update_list(self):
         for device in range(len(self.imu.devices._XdpcHandler__connectedDots)):
@@ -817,7 +867,7 @@ class IMURecordingStudio(tk.Tk):
     def imu_update_battery_levels(self):
         for labels in range(len(self.imu_battery_status_labels)):
             self.imu_battery_status_labels[labels]["text"] = f"{self.imu.devices._XdpcHandler__connectedDots[labels].batteryLevel()}%"   
-        print(1)
+        logger.debug(1)
 
     def lock_imu_configuration(self):
         selected_values = []
@@ -833,10 +883,10 @@ class IMURecordingStudio(tk.Tk):
                 selected_values.append(value)
 
     # If no conflicts, lock configuration
-        for combobox in self.imu_comboboxes:
-            combobox['state'] = 'disable'
-            self.imu_lock_status = True
-            print("IMU configuration locked successfully.")
+            if combobox in self.imu_comboboxes:
+               combobox['state'] = 'disable'
+               self.imu_lock_status = True
+        logger.info("IMU configuration locked successfully.")
 
     def unlock_imu_configuration(self):
         for combo in self.imu_comboboxes:
@@ -850,7 +900,7 @@ class IMURecordingStudio(tk.Tk):
     def start_stop_button_streaming_imu(self):
        
         if self.recording:
-            print("IMU already in recording mode.")
+            logger.warning("IMU already in recording mode.")
             return
 
         if self.imu_streaming:
@@ -864,13 +914,13 @@ class IMURecordingStudio(tk.Tk):
     
     # Stop streaming for camera1 and camera 2
     def stop_streaming_mode(self):
-        print("Stopping streaming mode...")
+        logger.info("Stopping streaming mode...")
         for i in [0,1]:
             self.thread_flag[i] = False
             if self.thread[i] is not None:
                self.thread[i].join(0)
                self.thread[i] = None
-               print(f"Thread {i} stopped.")
+               logger.debug(f"Thread {i} stopped.")
 
         self.camera_list_1['state']= 'readonly'
         self.camera_list_2['state']='readonly'
@@ -882,36 +932,36 @@ class IMURecordingStudio(tk.Tk):
         for i in range(6):
         # Skip stopping IMU streaming thread if it’s running separately
           if i == 2 and self.imu_streaming and not self.recording:
-            print("[DEBUG] Skipping stop of IMU streaming thread[2]")
+            logger.debug("Skipping stop of IMU streaming thread[2]")
             continue
 
         self.thread_flag[i] = False
         if self.thread[i] is not None:
             self.thread[i].join(0)
             self.thread[i] = None
-            print(f" Stopped and cleared thread[{i}]")
+            logger.debug(f" Stopped and cleared thread[{i}]")
 
     def start_recording(self):
       
       if self.recording:
-        print("Recording already in progress.")
+        logger.warning("Recording already in progress.")
         return
 
       if not self.imu_lock_status:
-        print("Configuration must be locked before starting recording.")
+        logger.warning("Configuration must be locked before starting recording.")
         return
 
-      print("Preparing to start recording...")
+      logger.info("Preparing to start recording...")
 
       while not self.data_queue.empty():
         try:
             self.data_queue.get_nowait()
         except Exception as e:
-            print(f"Error while clearing queue: {e}")
+            logger.error(f"Error while clearing queue: {e}")
             break
 
       if not self.imu_streaming:
-        print("Starting IMU measuring mode")
+        logger.info("Starting IMU measuring mode")
         self.start_imu_streaming()
 
     
@@ -921,7 +971,7 @@ class IMURecordingStudio(tk.Tk):
     def reset_heading_and_countdown(self, seconds_left):
       self.exercise_list_label['text'] = f"Recording starts in: {seconds_left} seconds"
       self.exercise_list_label['background'] = 'orange'
-      if seconds_left == 2:  
+      """if seconds_left == 2:  
         try:
             # self.imu.reset_heading()
             # self.initiate_plot()
@@ -929,18 +979,21 @@ class IMURecordingStudio(tk.Tk):
             self.get_calibration_data()
             print("Calibration data acquired!")
         except Exception as e:
-            print(f"Error resetting IMU heading: {e}")
+            print(f"Error resetting IMU heading: {e}")"""
 
       if seconds_left > 0:
-        print(f"Recording starts in: {seconds_left}...")
+        logger.info(f"Recording starts in: {seconds_left}...")
         self.after(2000, lambda: self.reset_heading_and_countdown(seconds_left - 1))
       else:
         self.start_recording_proper()
 
     def start_recording_proper(self):
-      print("Starting actual recording...")
+      logger.info("Starting actual recording...")
 
       self.stop_threads()
+
+      self.latest_frame_cam1 = None
+      self.latest_frame_cam2 = None
 
       self.use_queue = True
       self.recording = True
@@ -948,39 +1001,39 @@ class IMURecordingStudio(tk.Tk):
       self.thread_flag[0] = True
       self.thread[0] = Thread(target=self.camera1_thread)
       self.thread[0].start()
-      print("Thread 0  started.")
+      logger.debug("Thread 0  started.")
    
       self.thread_flag[1] = True
       self.thread[1] = Thread(target=self.camera2_thread)
       self.thread[1].start()
-      print("Thread 1 started.")
+      logger.debug("Thread 1 started.")
     
       self.thread_flag[3] = True
       self.thread[3] = Thread(target=self.update_imu_plot)
       self.thread[3].start()
-      print("Thread 3 started.")
+      logger.debug("Thread 3 started.")
 
     
       self.thread_flag[4] = True
       self.thread[4] = Thread(target=self.update_camera_figures)
       self.thread[4].start()
-      print("Thread 4  started.")
+      logger.debug("Thread 4  started.")
 
       self.thread_flag[5] = True  # New thread for  data collection
       self.thread[5] = Thread(target=self.data_collection_thread)
       self.thread[5].start()
-      print("Thread 5  started.")
+      logger.debug("Thread 5  started.")
 
-      print("Recording Started.")
+      logger.info("Recording Started.")
       self.exercise_list_label['text'] = f"RECORDING!"
       self.exercise_list_label['background'] = 'green'
 
     def stop_recording(self):
      if not self.recording:
-        print("Recording stopped.")
+        logger.info("Recording stopped.")
         return
 
-     print("Stopping recording...")
+     logger.info("Stopping recording...")
 
      self.recording = False
      self.use_queue = False
@@ -990,7 +1043,7 @@ class IMURecordingStudio(tk.Tk):
         if self.thread[i] is not None:
             self.thread[i].join(0)
             self.thread[i] = None
-            print(f"Thread {i} stopped.")
+            logger.debug(f"Thread {i} stopped.")
 
      for camera in self.InitiatedCameras:
         camera.streaming = False
@@ -1002,7 +1055,7 @@ class IMURecordingStudio(tk.Tk):
      self.thread_flag[2] = False
      self.thread[2] = None
 
-     print("Recording fully stopped.")
+     logger.info("Recording fully stopped.")
 
      # Save data
      if not hasattr(self, 'selected_data_dir'):
@@ -1013,14 +1066,16 @@ class IMURecordingStudio(tk.Tk):
         self.imu_ordered_configuration,
         self.patients_id_field.get(),
         self.exercises_list.get(),
-        self.imu_pose_selection.get() #Sitting or Laying
+        self.imu_pose_selection.get(), #Sitting, Lying, Standing
+        self.sub_exercises_list.get() 
      )
-     print("Recording saved.")
+
+     logger.info("Recording saved.")
 
      self.camera_list_1['state'] = 'readonly'
      self.camera_list_2['state'] = 'readonly'
 
-     print("System fully reset: Ready for new streaming or recording.")
+     logger.info("System fully reset: Ready for new streaming or recording.")
 
      self.exercise_list_label['text'] = "Ready for recording"
      self.exercise_list_label['background'] = 'yellow'
@@ -1040,12 +1095,15 @@ class IMURecordingStudio(tk.Tk):
             # Data from sensors
             try:
                 if not self.imu_streaming:
-                    print("IMU not streaming")
+                    logger.warning("IMU not streaming")
                     data_entry['imu'] = None
                 else:
                     self.imu.get_measurments()
-                    data_entry['imu'] = self.calibrate_quaternions()
-                    # data_entry['imu'] = self.imu.quat_data.copy() #Use this if you want to save raw data
+                    if frames == 0:
+                        self.get_calibration_data()  # calibration on the 1st frame
+                        #print("[Calibration] Inverse quaternion")
+                    #data_entry['imu'] = self.calibrate_quaternions()
+                    data_entry['imu'] = self.imu.quat_data.copy() #Use this if you want to save raw data
                     data_entry['imu_acc'] = self.imu.acc_data.copy()
                     data_entry['imu_ang'] = self.imu.gyr_data.copy()
                     data_entry['imu_mag'] = self.imu.mag_data.copy()
@@ -1054,7 +1112,7 @@ class IMURecordingStudio(tk.Tk):
                     self.latest_quat_data = self.imu.quat_data.copy()
 
             except Exception as e:
-                print(f"[IMU] Error while collecting data: {e}")
+                logger.error(f"Error while collecting data: {e}")
                 data_entry['imu'] = None
 
             # Camera 1
@@ -1064,7 +1122,7 @@ class IMURecordingStudio(tk.Tk):
                 else:
                     data_entry['frame_cam1'] = None
             except Exception as e:
-                print(f"[Camera 1] Error: {e}")
+                logger.error(f"[Camera 1] Error: {e}")
                 data_entry['frame_cam1'] = None
 
             # Camera 2
@@ -1074,7 +1132,7 @@ class IMURecordingStudio(tk.Tk):
                 else:
                     data_entry['frame_cam2'] = None
             except Exception as e:
-                print(f"[Camera 2] Error: {e}")
+                logger.error(f"[Camera 2] Error: {e}")
                 data_entry['frame_cam2'] = None
 
             data_entry['timestamp'] = timestamp
@@ -1084,7 +1142,7 @@ class IMURecordingStudio(tk.Tk):
                 ### print("Data added to queue")
 
             frames += 1
-            print(f"Frames: {frames}")
+            logger.debug(f"Frames: {frames}")
 
             next_time += frame_rate
             sleep_duration = max(0, next_time - time.perf_counter())
@@ -1109,7 +1167,7 @@ class IMURecordingStudio(tk.Tk):
                 time.sleep(0.02)
             
             except Exception as e:
-                print(f"[Thread 4] Error during figure update: {e}")
+                logger.error(f"[Thread 4] Error during figure update: {e}")
                 
 
     def stop_imu_streaming(self):
@@ -1122,15 +1180,15 @@ class IMURecordingStudio(tk.Tk):
 
                self.thread[2]= None
 
-               print("IMU streaming stopped")
+               logger.info("IMU streaming stopped")
                self.imu_streaming = False
         else:
-            print("No IMUs are streaming at the moment")
+            logger.warning("No IMUs are streaming at the moment")
 
         
     def start_imu_streaming(self):
         if self.imu_streaming:
-            print("IMU is already streaming.")
+            logger.warning("IMU is already streaming.")
 
 
         if self.imu_lock_status:
@@ -1161,10 +1219,10 @@ class IMURecordingStudio(tk.Tk):
                 self.thread[flag_index]= Thread(target=self.update_imu_plot)
                 self.thread[flag_index].start()
 
-                print("IMU streaming  started")
+                logger.info("IMU streaming  started")
                      
             else: 
-                print("IMU configuration is not locked. Please proceed checking the configuration and lock it brefore start streaming")
+                logger.warning("IMU configuration is not locked. Please proceed checking the configuration and lock it brefore start streaming")
     
     def initiate_plot(self):
         self.reset_pose_plot()
@@ -1180,7 +1238,7 @@ class IMURecordingStudio(tk.Tk):
         try:
             if self.recording:
                 if not hasattr(self, 'latest_quat_data'):
-                    print("[IMU Plot] No quaternion data available yet")
+                    logger.warning("[IMU Plot] No quaternion data available yet")
                     #time.sleep(0.05)
 
                 quaternions = self.latest_quat_data
@@ -1214,10 +1272,10 @@ class IMURecordingStudio(tk.Tk):
                 self.imu.reset_heading()
                 self.reset_heading_flag = False
 
-            #time.sleep(0.02)  
+            time.sleep(0.01)  
 
         except Exception as e:
-            print(f"[IMU plot] Error: {e}")
+            logger.error(f"[IMU plot] Error: {e}")
             break
 
     #Rotation matrix from quaternions as input
@@ -1250,8 +1308,11 @@ class IMURecordingStudio(tk.Tk):
     def get_pose(self, ax=None, canvas =None):
         if self.imu_pose_selection.get() == 'Sitting':
             self.joints = DEFAULT_SETTINGS.skeleton_pose_sitting_joints()
+        elif self.imu_pose_selection.get()== 'Lying':
+            self.joints = DEFAULT_SETTINGS.skeleton_pose_lying_joints()
         else:
-            self.joints = DEFAULT_SETTINGS.skeleton_pose_laying_joints()
+            self.joints = DEFAULT_SETTINGS.skeleton_pose_standing_joints()
+        
         if ax is not None and canvas is not None:
             DEFAULT_SETTINGS.plot_body_parts(self.ax, self.joints)
             canvas.draw() 
@@ -1393,79 +1454,91 @@ class IMURecordingStudio(tk.Tk):
             self.update_visualization_plots(current - 1)
         self.after(10, self.auto_decrease_frame)  
 
-    def load_camera_folder(self):
-        folder = filedialog.askdirectory(title="Select Folder with NPY camera files")
+    """def load_camera_folder(self):
+        folder = filedialog.askdirectory(title="Select Folder with mp4 camera files")
         if not folder:
             return
 
-        npy_files = [f for f in os.listdir(folder) if f.endswith(".npy")]
-        npy_paths = [os.path.join(folder, f) for f in npy_files]
+        mp4_files = [f for f in os.listdir(folder) if f.endswith(".mp4")]
+        mp4_paths = [os.path.join(folder, f) for f in mp4_files]
 
-        if not npy_paths:
-            print("No .npy files found.")
+        if not mp4_paths:
+            print("No .mp4 files found.")
             return
 
-        self.camera_npy_files = dict(zip(npy_files, npy_paths))  
+        self.camera_mp4_files = dict(zip(mp4_files, mp4_paths))  
 
-        self.camera1_npy_combobox['values'] = npy_files
-        self.camera2_npy_combobox['values'] = npy_files
-        self.camera1_npy_combobox['state'] = 'readonly'
-        self.camera2_npy_combobox['state'] = 'readonly'
+        self.camera1_mp4_combobox['values'] = mp4_files
+        self.camera2_mp4_combobox['values'] = mp4_files
+        self.camera1_mp4_combobox['state'] = 'readonly'
+        self.camera2_mp4_combobox['state'] = 'readonly'
 
         # Setting default values
-        self.camera1_npy_combobox.set(npy_files[0])
-        if len(npy_files) > 1:
-            self.camera2_npy_combobox.set(npy_files[1])
+        self.camera1_mp4_combobox.set(mp4_files[0])
+        if len(mp4_files) > 1:
+            self.camera2_mp4_combobox.set(mp4_files[1])
         else:
-            self.camera2_npy_combobox.set(npy_files[0])
+            self.camera2_mp4_combobox.set(mp4_files[0])
 
         # Event connection
-        self.camera1_npy_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_npy(1))
-        self.camera2_npy_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_npy(2))
+        self.camera1_mp4_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_mp4(1))
+        self.camera2_mp4_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_mp4(2))
 
         # Loading initial camera data
-        self.load_selected_camera_npy(1)
-        self.load_selected_camera_npy(2)
+        self.load_selected_camera_mp4(1)
+        self.load_selected_camera_mp4(2)
 
 
-    def on_select_camera_npy(self, event):
-     selected_file = self.camera_npy_combobox.get()
-     self.load_selected_camera_npy(selected_file)
+    def on_select_camera_mp4(self, event):
+     selected_file = self.camera_mp4_combobox.get()
+     self.load_selected_camera_mp4(selected_file)"""
 
-    def load_selected_camera_npy(self, camera_id):
+    def load_selected_camera_mp4(self, camera_id):
      try:
         if camera_id == 1:
-            filename = self.camera1_npy_combobox.get()
+            filename = self.camera1_mp4_combobox.get()
         else:
-            filename = self.camera2_npy_combobox.get()
+            filename = self.camera2_mp4_combobox.get()
 
-        path = self.camera_npy_files.get(filename)
+        path = self.camera_mp4_files.get(filename)
         if not path:
-            print(f"No path found for {filename}")
+            logger.warning(f"No path found for {filename}")
             return
 
-        data = np.load(path, allow_pickle=True)
+        data = self.read_video_frames(path)  
+
         if camera_id == 1:
             self.loaded_camera1_frames = data
         else:
             self.loaded_camera2_frames = data
 
-        print(f"Loaded Camera {camera_id} from {path}")
+        logger.info(f"Loaded Camera {camera_id} from {path}")
         if hasattr(self, 'timestamps'):
             self.select_frame_scrollbar['to'] = len(data) - 1
 
         self.update_camera_views(self.frame_nr_var.get())
 
      except Exception as e:
-        print(f"[Load Camera {camera_id}] Error: {e}")
+        logger.error(f"[Load Camera {camera_id}] Error: {e}")
 
 
+    def read_video_frames(self, video_path):
+        frames = []
+        cam = cv2.VideoCapture(video_path)
+        while cam.isOpened():
+            ret, frame = cam.read()
+            if not ret:
+                break
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frames.append(frame_rgb)
+        cam.release()
+        return frames
 
     def load_recordings(self):
         try:
             folder_path = filedialog.askdirectory(title="Select Recordings Folder")
             if not folder_path:
-                print("No folder selected.")
+                logger.warning("No folder selected.")
                 return
 
             self.load_path = folder_path
@@ -1473,7 +1546,7 @@ class IMURecordingStudio(tk.Tk):
         # Find all CSV files (full filenames)
             csv_files = [f for f in os.listdir(folder_path) if f.endswith('.csv')]
             if not csv_files:
-                print("No CSV files found in the selected folder.")
+                logger.warning("No CSV files found in the selected folder.")
                 self.available_recording_combobox['values'] = []
                 self.available_recording_combobox['state'] = 'disabled'
                 return
@@ -1483,7 +1556,7 @@ class IMURecordingStudio(tk.Tk):
             self.available_recording_combobox.set(csv_files[0])  # set first
 
         except Exception as e:
-            print(f"[Load Recordings] Error: {e}")
+            logger.error(f"[Load Recordings] Error: {e}")
 
         selected_file = os.path.join(folder_path, self.available_recording_combobox.get())
         df = pd.read_csv(selected_file)
@@ -1513,21 +1586,21 @@ class IMURecordingStudio(tk.Tk):
         self.select_frame_scrollbar['to'] = num_frames - 1
         self.data_changed = True
 
-        print(f"Loaded {num_frames} frames, {num_imus} IMUs, for visualization.")
+        logger.debug(f"Loaded {num_frames} frames, {num_imus} IMUs, for visualization.")
 
     
     def on_select_recording(self, event):
      try:
         selected_file = self.available_recording_combobox.get()
         if not selected_file:
-            print("No file selected in combobox.")
+            logger.warning("No file selected in combobox.")
             return
 
         folder_path = self.load_path
         csv_path = os.path.join(folder_path, selected_file)
         base_path = os.path.splitext(csv_path)[0]
-        cam1_path = base_path + "_camera1.npy"
-        cam2_path = base_path + "_camera2.npy"
+        cam1_path = base_path + "_camera1.mp4"
+        cam2_path = base_path + "_camera2.mp4"
 
         # Load IMU data
         if os.path.exists(csv_path):
@@ -1542,11 +1615,13 @@ class IMURecordingStudio(tk.Tk):
                         if last_line.startswith("#POSE="):
                             pose_code = last_line.split("=")[-1]
                             if pose_code == "L":
-                                self.imu_pose_selection.set("Laying")
-                            else:
+                                self.imu_pose_selection.set("Lying")
+                            elif pose_code=="S":
                                 self.imu_pose_selection.set("Sitting")
+                            else:
+                                self.imu_pose_selection.set("Standing")
             except Exception as e:
-                print(f"[POSE] Could not read pose info from file: {e}")
+                logger.error(f"Could not read pose info from file: {e}")
 
             self.timestamps = self.loaded_imu_data["timestamp"].to_numpy()
     
@@ -1567,9 +1642,9 @@ class IMURecordingStudio(tk.Tk):
                 self.loaded_ang_data.append(ang_values)
                 self.loaded_mag_data.append(mag_values)
      
-            print(f"Loaded IMU data from {csv_path}")
+            logger.info(f"Loaded IMU data from {csv_path}")
         else:
-            print(f"CSV file not found: {csv_path}")
+            logger.error(f"CSV file not found: {csv_path}")
             return
         
         imu_tickbox_map = {
@@ -1602,52 +1677,75 @@ class IMURecordingStudio(tk.Tk):
         cam2_file = os.path.basename(cam2_path)
 
         if camera1_exists:
-            self.loaded_camera1_frames = np.load(cam1_path)
-            print(f"Loaded camera1 frames from {cam1_path}")
-            self.camera1_npy_combobox['values'] = [cam1_file]
-            self.camera1_npy_combobox['state'] = 'readonly'
-            self.camera1_npy_combobox.set(cam1_file)
-            self.camera1_npy_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_npy(1))
-            if not hasattr(self, 'camera_npy_files'):
-                self.camera_npy_files = {}
-            self.camera_npy_files[cam1_file] = cam1_path
+            self.loaded_camera1_frames = self.read_video_frames(cam1_path)
+            logger.info(f"Loaded camera1 frames from {cam1_path}")
+            self.camera1_mp4_combobox['values'] = [cam1_file]
+            self.camera1_mp4_combobox['state'] = 'readonly'
+            self.camera1_mp4_combobox.set(cam1_file)
+            self.camera1_mp4_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_mp4(1))
+            if not hasattr(self, 'camera_mp4_files'):
+                self.camera_mp4_files = {}
+            self.camera_mp4_files[cam1_file] = cam1_path
         else:
             self.loaded_camera1_frames = None
-            self.camera1_npy_combobox['values'] = []
-            self.camera1_npy_combobox.set('')
-            self.camera1_npy_combobox['state'] = 'disabled'
-            print(f"Camera1 file not found: {cam1_path}")
+            self.ax3.clear()
+            self.ax3.set_title("Front View")
+            self.ax3.axis('off')
+            self.canvas3.draw()
+            self.camera1_mp4_combobox['values'] = []
+            self.camera1_mp4_combobox.set('')
+            self.camera1_mp4_combobox['state'] = 'disabled'
+            logger.error(f"Camera1 file not found: {cam1_path}")
 
         if camera2_exists:
-            self.loaded_camera2_frames = np.load(cam2_path)
-            print(f"Loaded camera2 frames from {cam2_path}")
-            self.camera2_npy_combobox['values'] = [cam2_file]
-            self.camera2_npy_combobox['state'] = 'readonly'
-            self.camera2_npy_combobox.set(cam2_file)
-            self.camera2_npy_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_npy(2))
-            if not hasattr(self, 'camera_npy_files'):
-                self.camera_npy_files = {}
-            self.camera_npy_files[cam2_file] = cam2_path
+            self.loaded_camera2_frames = self.read_video_frames(cam2_path)
+            logger.info(f"Loaded camera2 frames from {cam2_path}")
+            self.camera2_mp4_combobox['values'] = [cam2_file]
+            self.camera2_mp4_combobox['state'] = 'readonly'
+            self.camera2_mp4_combobox.set(cam2_file)
+            self.camera2_mp4_combobox.bind("<<ComboboxSelected>>", lambda e: self.load_selected_camera_mp4(2))
+            if not hasattr(self, 'camera_mp4_files'):
+                self.camera_mp4_files = {}
+            self.camera_mp4_files[cam2_file] = cam2_path
         else:
             self.loaded_camera2_frames = None
-            self.camera2_npy_combobox['values'] = []
-            self.camera2_npy_combobox.set('')
-            self.camera2_npy_combobox['state'] = 'disabled'
-            print(f"Camera2 file not found: {cam2_path}")
+            self.ax4.clear()
+            self.ax4.set_title("Side View")
+            self.ax4.axis('off')
+            self.canvas4.draw()
+            self.camera2_mp4_combobox['values'] = []
+            self.camera2_mp4_combobox.set('')
+            self.camera2_mp4_combobox['state'] = 'disabled'
+            logger.error(f"Camera2 file not found: {cam2_path}")
 
         # Update slider for IMU frames
         if len(self.loaded_imu_data) > 0:
             num_frames = len(self.loaded_imu_data)
             self.select_frame_scrollbar.config(to=num_frames - 1)
-            print(f"Updated slider to {num_frames} IMU frames.")
+            logger.debug(f"Updated slider to {num_frames} IMU frames.")
         
         self.data_changed = True
+        
+        # Calibration reference = frame 0
+        self.visual_calibration_reference = {}
+        for i in range(6):
+            col_q = [f"quat.w({i})", f"quat.x({i})", f"quat.y({i})", f"quat.z({i})"]
+            if all(col in self.loaded_imu_data.columns for col in col_q):
+                q_ref = self.loaded_imu_data.loc[0, col_q].values.astype(float)
+                norm_sq = np.sum(q_ref ** 2)
+                if not np.any(np.isnan(q_ref)):
+                    q_inv = np.array([q_ref[0], -q_ref[1], -q_ref[2], -q_ref[3]]) / norm_sq
+                    self.visual_calibration_reference[i] = q_inv
+                    logger.debug(f" IMU {i} reference saved from frame 0.")
+                else:
+                    logger.warning(f" Invalid quaternion for IMU {i} in frame 0.")
+
         self.update_visualization_plots()
 
-        print("Finished loading and visualizing data.")
+        logger.info("Finished loading and visualizing data.")
 
      except Exception as e:
-        print(f"[On Select Recording] Error: {e}")
+        logger.error(f"Error: {e}")
 
     def trigger_update(self):
         self.data_changed = True
@@ -1657,17 +1755,17 @@ class IMURecordingStudio(tk.Tk):
      try:
         num_frames = len(self.loaded_acc_data[0]) if self.loaded_acc_data else 0
         if num_frames == 0:
-            print("[Visualization Update] No data loaded.")
+            logger.warning("[Visualization Update] No data loaded.")
             return
 
         idx = self.frame_nr_var.get() if frame_idx is None else frame_idx
         if idx < 0 or idx >= num_frames:
-            print("[Visualization Update] Index out of bounds.")
+            logger.warning("[Visualization Update] Index out of bounds.")
             return
 
         time_axis = self.timestamps
 
-        # Ποια tickboxes είναι ενεργά
+        # Active tickboxes
         active_flags = {
             "acc": self.acc_checkbox_var.get(),
             "ang": self.ang_checkbox_var.get(),
@@ -1678,7 +1776,7 @@ class IMURecordingStudio(tk.Tk):
         n = len(active_keys)
 
         if n == 0:
-            print("No visualization types selected.")
+            logger.warning("No visualization types selected.")
             return
 
         if self.data_changed:
@@ -1746,7 +1844,7 @@ class IMURecordingStudio(tk.Tk):
                 ax.scatter(time_axis[idx], mag[idx, 1], color='lime', s=40)
                 ax.scatter(time_axis[idx], mag[idx, 2], color='darkgreen', s=40)
 
-        # Τίτλοι και axis info
+        # Titles and axis info
         if "acc" in ax_map:
             ax = ax_map["acc"]
             ax.set_ylabel("m/s²")
@@ -1793,7 +1891,7 @@ class IMURecordingStudio(tk.Tk):
         self.data_changed =False
 
      except Exception as e:
-        print(f"[Visualization Update] Error: {e}")
+        logger.error(f"Error: {e}")
 
     def update_camera_views(self, frame_idx):
      try:
@@ -1812,7 +1910,7 @@ class IMURecordingStudio(tk.Tk):
             self.canvas4.draw()
 
      except Exception as e:
-        print(f"[Camera Visualization] Error at frame {frame_idx}: {e}")
+        logger.error(f"Error at frame {frame_idx}: {e}")
 
     def update_pose_viewer(self, frame_idx):
         try:
@@ -1839,6 +1937,8 @@ class IMURecordingStudio(tk.Tk):
                 self.right_thigh_checkbox_var, self.right_calf_checkbox_var, self.right_foot_checkbox_var
             ]
 
+            if not hasattr(self, 'visual_calibration_reference'):
+                self.visual_calibration_reference = {}
             for i in range(6):
                 if not checkbox_vars[i].get():
                     continue
@@ -1846,14 +1946,29 @@ class IMURecordingStudio(tk.Tk):
                 col_q = [f"quat.w({i})", f"quat.x({i})", f"quat.y({i})", f"quat.z({i})"]
                 if all(col in self.loaded_imu_data.columns for col in col_q):
                     q = self.loaded_imu_data.loc[frame_idx, col_q].values.astype(float)
+
+                    if np.any(np.isnan(q)) :
+                        logger.warning(f"Skipping IMU {i} due to invalid quaternion.")
+                        continue  # skip empty quaternions
+
+                    if self.show_calibrated_visual_checkbox_var.get():
+                        if i in self.visual_calibration_reference:
+                            q = self.multiply_quaternions(self.visual_calibration_reference[i], q)
+                        else:
+                            logger.warning(f"No calibration reference for IMU {i}")
+                            continue  # no calibration available
+
                     R = self.get_rotation_matrix_quaternions(q)
                     self.rotate_leg_segment(segment_labels[i], R)
+                    
 
             DEFAULT_SETTINGS.plot_body_parts(self.ax6, self.new_joints)
+            title = "Pose Viewer (Calibrated)" if self.show_calibrated_visual_checkbox_var.get() else "Pose Viewer"
+            self.ax6.set_title(title)
             self.canvas6.draw()
 
         except Exception as e:
-            print(f"[Pose Viewer] Error updating pose: {e}")
+            logger.error(f"[Pose Viewer] Error updating pose: {e}")
 
     def get_calibration_data(self):
         self.imu.calibrate()        
@@ -1869,14 +1984,14 @@ class IMURecordingStudio(tk.Tk):
             w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
         ])
 
-    def calibrate_quaternions(self):
+    """def calibrate_quaternions(self):
         calibrated_quaternions = np.empty([self.imu.numOfDevices, 4])
         for dev in range(self.imu.numOfDevices):
             if self.imu.calibration_status[dev]:
                 calibrated_quaternions[dev,:] = self.multiply_quaternions(self.imu.calibration_inverse[dev,:], self.imu.quat_data[dev,:])
             else:
                 print(f"Device {dev} is not calibrated")
-        return calibrated_quaternions
+        return calibrated_quaternions"""
         
 # Run the application
 if __name__ == "__main__":
