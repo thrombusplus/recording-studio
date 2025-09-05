@@ -965,14 +965,14 @@ class IMURecordingStudio(tk.Tk):
         self.start_imu_streaming()
 
     
-      self.reset_heading_and_countdown(5)
+      self.reset_heading_and_countdown(3)
 
 
     def reset_heading_and_countdown(self, seconds_left):
       self.exercise_list_label['text'] = f"Recording starts in: {seconds_left} seconds"
       self.exercise_list_label['background'] = 'orange'
       """if seconds_left == 2:  
-        try:
+        try: 
             # self.imu.reset_heading()
             # self.initiate_plot()
             # self.imu.get_measurments()
@@ -1019,10 +1019,16 @@ class IMURecordingStudio(tk.Tk):
       self.thread[4].start()
       logger.debug("Thread 4  started.")
 
-      self.thread_flag[5] = True  # New thread for  data collection
-      self.thread[5] = Thread(target=self.data_collection_thread)
+    #   self.thread_flag[5] = True  # New thread for  data collection
+    #   self.thread[5] = Thread(target=self.data_collection_thread)
+    #   self.thread[5].start()
+    #   logger.debug("Thread 5  started.")
+
+      self.thread_flag[5] = True # New thread for getting IMU measurements
+      self.thread[5] = Thread(target=self.get_imu_measurments)
       self.thread[5].start()
       logger.debug("Thread 5  started.")
+
 
       logger.info("Recording Started.")
       self.exercise_list_label['text'] = f"RECORDING!"
@@ -1082,71 +1088,77 @@ class IMURecordingStudio(tk.Tk):
 
     def data_collection_thread(self):
         
-        frame_rate = 1 / float(self.frame_rate_list.get())
-        frames = 0
-        next_time = time.perf_counter()
+        print(self.imu.newPackets)
 
-        while self.thread_flag[5]:
-            start = time.perf_counter()
+        data_entry = {}
 
-            data_entry = {}
-            timestamp = time.time()
-
-            # Data from sensors
-            try:
-                if not self.imu_streaming:
-                    logger.warning("IMU not streaming")
-                    data_entry['imu'] = None
-                else:
-                    self.imu.get_measurments()
-                    if frames == 0:
-                        self.get_calibration_data()  # calibration on the 1st frame
-                        #print("[Calibration] Inverse quaternion")
-                    #data_entry['imu'] = self.calibrate_quaternions()
-                    data_entry['imu'] = self.imu.quat_data.copy() #Use this if you want to save raw data
-                    data_entry['imu_acc'] = self.imu.acc_data.copy()
-                    data_entry['imu_ang'] = self.imu.gyr_data.copy()
-                    data_entry['imu_mag'] = self.imu.mag_data.copy()
-                    data_entry['imu_ts'] = self.imu.sensor_timestamp.copy()
-                    
-                    self.latest_quat_data = self.imu.quat_data.copy()
-
-            except Exception as e:
-                logger.error(f"Error while collecting data: {e}")
+        # Data from sensors
+        try:
+            if not self.imu_streaming:
+                logger.warning("IMU not streaming")
                 data_entry['imu'] = None
+            else:
+                # self.imu.get_measurments()
+                if self.frames == 0:
+                    self.get_calibration_data()  # calibration on the 1st frame
+                    #print("[Calibration] Inverse quaternion")
+                #data_entry['imu'] = self.calibrate_quaternions()
+                data_entry['imu'] = self.imu.quat_data.copy() #Use this if you want to save raw data
+                data_entry['imu_acc'] = self.imu.acc_data.copy()
+                data_entry['imu_ang'] = self.imu.gyr_data.copy()
+                data_entry['imu_mag'] = self.imu.mag_data.copy()
+                data_entry['imu_ts'] = self.imu.sensor_timestamp.copy()
 
-            # Camera 1
-            try:
-                if self.latest_frame_cam1 is not None:
-                    data_entry['frame_cam1'] = self.latest_frame_cam1.copy()
-                else:
-                    data_entry['frame_cam1'] = None
-            except Exception as e:
-                logger.error(f"[Camera 1] Error: {e}")
+        except Exception as e:
+            logger.error(f"Error while collecting data: {e}")
+            data_entry['imu'] = None
+        
+        data_entry['timestamp'] = time.time()
+
+        # Camera 1
+        try:
+            if self.latest_frame_cam1 is not None:
+                data_entry['frame_cam1'] = self.latest_frame_cam1.copy()
+            else:
                 data_entry['frame_cam1'] = None
+        except Exception as e:
+            logger.error(f"[Camera 1] Error: {e}")
+            data_entry['frame_cam1'] = None
 
-            # Camera 2
-            try:
-                if self.latest_frame_cam2 is not None:
-                    data_entry['frame_cam2'] = self.latest_frame_cam2.copy()
-                else:
-                    data_entry['frame_cam2'] = None
-            except Exception as e:
-                logger.error(f"[Camera 2] Error: {e}")
+        # Camera 2
+        try:
+            if self.latest_frame_cam2 is not None:
+                data_entry['frame_cam2'] = self.latest_frame_cam2.copy()
+            else:
                 data_entry['frame_cam2'] = None
+        except Exception as e:
+            logger.error(f"[Camera 2] Error: {e}")
+            data_entry['frame_cam2'] = None
 
-            data_entry['timestamp'] = timestamp
+        if self.recording and self.use_queue:
+            self.data_queue.put(data_entry)
+            ### print("Data added to queue")
 
-            if self.recording and self.use_queue:
-                self.data_queue.put(data_entry)
-                ### print("Data added to queue")
+        self.frames += 1
+        logger.debug(f"Frames: {self.frames}")
 
-            frames += 1
-            logger.debug(f"Frames: {frames}")
 
-            next_time += frame_rate
-            sleep_duration = max(0, next_time - time.perf_counter())
-            time.sleep(sleep_duration)
+    def get_imu_measurments(self):
+        self.frames = 0
+        while self.thread_flag[5]:
+            try:
+                self.imu.get_measurments()
+                
+                if self.imu.newPackets:
+                    self.latest_quat_data = self.imu.quat_data.copy()
+                    Thread(target=self.data_collection_thread).start()
+                    self.imu.newPackets = False 
+
+            except Exception as e:
+                logger.error(f"[Get IMU Measurements] Error: {e}")
+
+            time.sleep(0.005)
+
 
     def update_camera_figures(self): # Method used in recording mode.
         while self.thread_flag[4]:
@@ -1237,6 +1249,8 @@ class IMURecordingStudio(tk.Tk):
       while self.thread_flag[current_thread_index]:
         try:
             if self.recording:
+                
+                self.latest_quat_data = self.imu.quat_data.copy()
                 if not hasattr(self, 'latest_quat_data'):
                     logger.warning("[IMU Plot] No quaternion data available yet")
                     #time.sleep(0.05)

@@ -25,6 +25,7 @@ class IMUManager:
         self.quat_data = np.empty([self.numOfDevices, 4])
         self.calibration_status = np.full([self.numOfDevices,1], False)
         self.calibration_inverse = np.empty([self.numOfDevices, 4])
+        self.newPackets = False
 
         self.sensor_timestamp = np.zeros((6))  #for save sensor's timestamps
         
@@ -152,6 +153,7 @@ class IMUManager:
     def get_measurments(self):
         dev = 0 #counter for the number of device    
         if self.devices.packetsAvailable():
+            self.newPackets = True
             for device in self.devices.connectedDots(): #depending on the speed of the for loop, maybe this can take place in parallel 
                 # Retrieve a packet
                 packet = self.devices.getNextPacket(device.portInfo().bluetoothAddress())
