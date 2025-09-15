@@ -5,6 +5,7 @@ class DEFAULT_SETTINGS:
     def exercises_list():
         return {
             "Sitting": {
+                "Calibration":["CB"],
                 "Ankle-Pumps":["CL","CR","CB","CA"],
                 "Heel-Raises":["CL","CR","CB","CA","IL","IR","IB","IA"],
                 "Toe-Taps":["CL","CR","CB","CA","IL","IR","IB","IA"],
@@ -14,6 +15,7 @@ class DEFAULT_SETTINGS:
                 "Knee-Marches":["CL","CR","CB","CA","IL","IR","IB","IA"]
             },
             "Standing": {
+                "Calibration":["CB"],
                 "Toe-Raises":["CL","CR","CB","CA","IL","IR","IB","IA"],
                 "Calf-Raises":["CL","CR","CB","CA","IL","IR","IB","IA"],
                 "Ankle-Pumps":["CL","CR","CB","CA"],
@@ -23,6 +25,7 @@ class DEFAULT_SETTINGS:
                 "Mini-Squats" :["CB","IB"]
             },
             "Lying": {
+                "Calibration":["CB"],
                 "Ankle-Pumps": ["CL","CR","CB","CA"],
                 "Ankle-Circles-In":["CL", "CR"],
                 "Ankle-Circles-Out":["CL","CR"],
