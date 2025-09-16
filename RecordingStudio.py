@@ -13,10 +13,12 @@ import pandas as pd
 import copy
 import os
 import cv2
+import logging, sys
 from queue import Queue
 from src.utils.cameramanager import  CameraManager
 from src.utils import *
 from src.utils.logger import get_logger
+from src.utils.terminal import LogTab
 
 
 logger = get_logger(__name__)
@@ -304,6 +306,7 @@ class IMURecordingStudio(tk.Tk):
     
 
     def create_settings_tab(self):
+
         # IMU Sensor Status Frame
         self.imu_control_frame = ttk.LabelFrame(self.settings_tab, text="IMU Sensor Control")
         self.imu_control_frame.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
@@ -347,10 +350,10 @@ class IMURecordingStudio(tk.Tk):
         imu_lock_button.grid(row=imu+4, column=1, columnspan=1)
 
         self.imu_status_frame = ttk.LabelFrame(self.settings_tab, text="IMU Sensors Status")
-        self.imu_status_frame.grid(row=2, column=2, padx=10, pady=10, sticky='nsew')
+        self.imu_status_frame.grid(row=2, column=1, padx=5, pady=5, sticky='nsew')
 
         self.camera_status_frame = ttk.LabelFrame(self.settings_tab, text="Camera Sensor Status")
-        self.camera_status_frame.grid(row=0, column=2, padx=10, pady=10, sticky='nsew')              
+        self.camera_status_frame.grid(row=0, column=1, padx=5, pady=5, sticky='nsew')              
 
         # Connect Cameras Button
         self.connect_camera_button = ttk.Button(self.camera_status_frame, text="Read Cameras", command=self.connect_webcams)
@@ -358,6 +361,31 @@ class IMURecordingStudio(tk.Tk):
        
         self.disconnect_camera_button = ttk.Button(self.camera_status_frame, text="Disconnect Cameras", command=self.disconnect_webcams)
         self.disconnect_camera_button.grid(row=0, column=1, columnspan=1, pady=10)   
+
+        # Terminal Output Frame
+        self.terminal_frame = ttk.LabelFrame(self.settings_tab, text="Terminal")
+        self.terminal_frame.grid(row=0, column=2, rowspan=5, columnspan=5, padx=10, pady=10, sticky='nsew')
+
+        self.log_view = LogTab(self.terminal_frame)
+        self.log_view.pack(fill=tk.BOTH, expand=True)
+        self.settings_tab.columnconfigure(2, weight=1)
+
+        gui_handler = self.log_view.get_handler()
+        gui_handler.setLevel(logging.NOTSET) 
+
+        formatter = None
+        if logger.handlers:
+            formatter = logger.handlers[0].formatter
+        if formatter is not None:
+            gui_handler.setFormatter(formatter)
+
+        root_logger = logging.getLogger()
+        root_logger.addHandler(gui_handler)
+
+        if root_logger.level > logging.DEBUG:
+            root_logger.setLevel(logging.DEBUG)
+
+        self._gui_log_handler = gui_handler
 
     def create_imu_status_lamp(self, frame, text, row, column, batteryLevel):
         label = ttk.Label(frame, text=text)
