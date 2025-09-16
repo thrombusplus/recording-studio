@@ -18,7 +18,7 @@ from queue import Queue
 from src.utils.cameramanager import  CameraManager
 from src.utils import *
 from src.utils.logger import get_logger
-from src.utils.terminal import LogTab
+from src.utils.gui_terminal import LogTab
 
 
 logger = get_logger(__name__)
