@@ -6,37 +6,31 @@ class DEFAULT_SETTINGS:
         return {
             "Sitting": {
                 "Calibration":["CB"],
-                "Ankle-Pumps":["CL","CR","CB","CA"],
-                "Heel-Raises":["CL","CR","CB","CA","IL","IR","IB","IA"],
-                "Toe-Taps":["CL","CR","CB","CA","IL","IR","IB","IA"],
+                "Ankle-Pumps":["CL","CR","CB"],
+                "Heel-Raises":["CL","CR","CB","IL","IR","IB"],
+                "Toe-Taps":["CL","CR","CB","IL","IR","IB"],
                 "Ankle-Circles-In":["CL","CR"],
                 "Ankle-Circles-Out":["CL","CR"],
-                "Knee-Extensions":["CL","CR","CB","CA","IL","IR","IB","IA"],
-                "Knee-Marches":["CL","CR","CB","CA","IL","IR","IB","IA"]
+                "Knee-Extensions":["CL","CR","IL","IR"],
+                "Knee-Marches":["CL","CR"]
             },
             "Standing": {
                 "Calibration":["CB"],
-                "Toe-Raises":["CL","CR","CB","CA","IL","IR","IB","IA"],
-                "Calf-Raises":["CL","CR","CB","CA","IL","IR","IB","IA"],
-                "Ankle-Pumps":["CL","CR","CB","CA"],
-                "Knee-Marches":["CL","CR","CB","CA","IL","IR","IB","IA"],
-                "Weight-Shifts":["CA"],
-                "Hip-Abductions":["CL","CR","CB","CA","IL","IR","IB","IA"],
-                "Mini-Squats" :["CB","IB"]
+                "Toe-Raises":["CL","CR","CB","IL","IR","IB"],
+                "Heel-Raises":["CL","CR"],
+                "Knee-Marches":["CL","CR"],
+                "Hip-Abductions":["CL","CR"],
+                "Mini-Squats" :["CB"]
             },
             "Lying": {
                 "Calibration":["CB"],
-                "Ankle-Pumps": ["CL","CR","CB","CA"],
-                "Ankle-Circles-In":["CL", "CR"],
+                "Ankle-Pumps": ["CL","CR","CB"],
+                "Ankle-Circles-In":["CL","CR"],
                 "Ankle-Circles-Out":["CL","CR"],
-                "Heel-Slides":["CL","CR","CB","CA"],
-                "Bridging":["CB","IB"],
-                "Straight-Leg-Raises":["CL","CR","CA","IL","IR","IA"],
-                "Heel-Bridging":["CB","IB"],
-                "Supine-Hip-Abduction":["CL","CR","CB","CA","IL","IR","IB","IA"],
-                "Supine-Heel-Taps":["CL","CR","CB","CA","IL","IR","IB","IA"],
-                "Right-Sided-Hip-Abduction":["CL","IL"],
-                "Left-Sided-Hip-Abduction":["CR","IR"]
+                "Heel-Slides":["CL","CR","CB"],
+                "Straight-Leg-Raises":["CL","CR","IL","IR"],
+                "Supine-Hip-Abduction":["CL","CR","IL","IR"],
+                "Supine-Heel-Taps":["CL","CR","CB"]
             }
         }
       
