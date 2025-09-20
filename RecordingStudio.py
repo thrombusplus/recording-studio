@@ -161,7 +161,7 @@ class IMURecordingStudio(tk.Tk):
 
         # Functionality Buttons Frame
         functionality_frame = ttk.LabelFrame(self.main_tab, text="Functionality Buttons")
-        functionality_frame.grid(row=2, column=1, padx=10, pady=10, sticky="nsew")
+        functionality_frame.grid(row=2, column=1, padx=5, pady=5, sticky="nsew")
         
 
         # Create matplotlib figures for the camera views
@@ -224,8 +224,55 @@ class IMURecordingStudio(tk.Tk):
         #Create a label sto shop if in recording/ready mode
         self.exercise_list_label=ttk.Label(frame, font= 10, text='Ready for recording', background= 'yellow' )
         self.exercise_list_label.grid(row=6, column=0, columnspan=1, padx=10, pady=10, sticky='w')
+        
+        #Create buttons for Websocket connection
+        ws_frame = ttk.LabelFrame(frame, text="WebSocket Control")
+        ws_frame.grid(row=9,column=0, padx=5, pady=5, sticky="w")
 
+        self.ws_btn = ttk.Button(ws_frame, text="Connect Websocket", command=self.ws_connection)
+        self.ws_btn.grid(row=8, column=0, padx=5, pady=5, sticky='w')
+
+        # Label + Combobox
+        ttk.Label(ws_frame, text='Choose Sensor:').grid(row=9, column=0, padx=10, pady=10, sticky='w')
+        self.ws_sensor_var = tk.StringVar()
+        self.ws_sensor_option = ttk.Combobox(ws_frame, textvariable= self.ws_sensor_var, state="readonly")
+        self.ws_sensor_option.configure(postcommand=self.ws_sensor_options)
+        self.ws_sensor_option.grid(row=9, column=1, padx=5, pady=5)
+        self.ws_sensor_option.bind("<<ComboboxSelected>>", self.on_ws_sensor_selected)
+        self.ws_sensor_option["values"] = []
+        self.ws_sensor_var.set("")
+
+    # Websocket connection
+    def ws_connection(self):    
+        pass
     
+    # Find the available sensors to choose
+    def ws_sensor_options(self, event = None):
+        if not hasattr(self, "imu") or self.imu is None:
+            logger.warning("[WS] No IMU connected yet")
+            return
+        try:
+            dots = self.imu.devices.connectedDots()   # list of connected DOTs
+            names = [d.deviceTagName() for d in dots]      
+        except Exception as e:
+            logger.error("[WS] refresh error: %s", e)
+            names = []
+
+        def apply():
+            self.ws_sensor_option["values"] = names
+            if names:
+                if self.ws_sensor_var.get() not in names:
+                    self.ws_sensor_var.set(names[0])
+            else:
+                self.ws_sensor_var.set("")
+        try:
+            self.after(0, apply)
+        except Exception:
+            apply()
+
+    def on_ws_sensor_selected(self, event=None):
+        logger.debug(f"[WS] Selected: {self.ws_sensor_var.get()}")
+
     def create_camera_views(self, frame):
         # Camera 1 View (using Matplotlib as placeholder)
         self.fig1, self.ax1 = plt.subplots(figsize=(4, 3))
@@ -847,6 +894,7 @@ class IMURecordingStudio(tk.Tk):
     def conenct_IMU_sensors(self):
         if self.imu == None:
             self.imu = IMUManager(int(self.frame_rate_list.get()))
+        self.ws_sensor_options()
 
         if self.imu.devices._XdpcHandler__connectedDots:
             self.imu_update_list()
