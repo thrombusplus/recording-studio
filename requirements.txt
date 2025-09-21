@@ -5,3 +5,5 @@ opencv-python==4.11.0.86
 pandas==2.3.0
 pillow==11.2.1
 ipython==8.37.0
+asyncio==3.4.3
+websockets==13.1
