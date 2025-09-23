@@ -19,6 +19,8 @@ from src.utils.cameramanager import  CameraManager
 from src.utils import *
 from src.utils.logger import get_logger
 from src.utils.gui_terminal import LogTab
+from src.utils.websocket_server import WebSocketServer
+
 
 
 logger = get_logger(__name__)
@@ -68,6 +70,11 @@ class IMURecordingStudio(tk.Tk):
         self.save_path = ""         # Directory for saving
         self.load_path = ""         # Directory for loading (visualization)
 
+        # WebSocket server for live IMU data streaming
+        self.websocket_server = None
+        self.websocket_enabled = False
+        self.websocket_port = 8185
+
 
         
         # Thread explanation:
@@ -93,6 +100,8 @@ class IMURecordingStudio(tk.Tk):
         def closeWindow():
             self.disconnect_IMU_sensors()
             self.disconnect_webcams()
+            if self.websocket_server and self.websocket_server.is_running():
+                self.websocket_server.stop_server()
             self.destroy()
             logger.info("EXIT")
 
@@ -361,6 +370,36 @@ class IMURecordingStudio(tk.Tk):
        
         self.disconnect_camera_button = ttk.Button(self.camera_status_frame, text="Disconnect Cameras", command=self.disconnect_webcams)
         self.disconnect_camera_button.grid(row=0, column=1, columnspan=1, pady=10)   
+
+        # WebSocket Server Control Frame
+        self.websocket_control_frame = ttk.LabelFrame(self.settings_tab, text="WebSocket Live Streaming")
+        self.websocket_control_frame.grid(row=1, column=1, padx=5, pady=5, sticky='nsew')
+
+        # WebSocket Enable/Disable Checkbox
+        self.websocket_enabled_var = tk.BooleanVar()
+        self.websocket_enabled_var.set(False)
+        self.websocket_enable_checkbox = ttk.Checkbutton(
+            self.websocket_control_frame, 
+            text="Enable WebSocket server", 
+            variable=self.websocket_enabled_var,
+            command=self.toggle_websocket_server
+        )
+        self.websocket_enable_checkbox.grid(row=0, column=0, columnspan=2, padx=10, pady=5, sticky='w')
+
+        # WebSocket Status Display
+        ttk.Label(self.websocket_control_frame, text="Status:").grid(row=1, column=0, padx=10, pady=5, sticky='w')
+        self.websocket_status_label = ttk.Label(self.websocket_control_frame, text="Stopped", foreground="red")
+        self.websocket_status_label.grid(row=1, column=1, padx=10, pady=5, sticky='w')
+
+        # WebSocket Client Count Display
+        ttk.Label(self.websocket_control_frame, text="Clients:").grid(row=2, column=0, padx=10, pady=5, sticky='w')
+        self.websocket_clients_label = ttk.Label(self.websocket_control_frame, text="0")
+        self.websocket_clients_label.grid(row=2, column=1, padx=10, pady=5, sticky='w')
+
+        # WebSocket URL Display
+        ttk.Label(self.websocket_control_frame, text="URL:").grid(row=3, column=0, padx=10, pady=5, sticky='w')
+        self.websocket_url_label = ttk.Label(self.websocket_control_frame, text=f"ws://localhost:{self.websocket_port}", foreground="blue")
+        self.websocket_url_label.grid(row=3, column=1, padx=10, pady=5, sticky='w')
 
         # Terminal Output Frame
         self.terminal_frame = ttk.LabelFrame(self.settings_tab, text="Terminal")
@@ -1288,6 +1327,15 @@ class IMURecordingStudio(tk.Tk):
             else:
                 self.imu.get_measurments()
                 quaternions = self.imu.quat_data
+                # Send data via WebSocket if enabled
+                self.send_websocket_data(
+                    time.time(),
+                    self.imu.quat_data,
+                    self.imu.acc_data,
+                    self.imu.gyr_data,
+                    self.imu.mag_data
+                )
+            
 
             for legSegment in range(len(self.imu_comboboxes)):
                 deviceIdx = self.imu_ordered_configuration[legSegment]
@@ -2035,6 +2083,75 @@ class IMURecordingStudio(tk.Tk):
                 print(f"Device {dev} is not calibrated")
         return calibrated_quaternions"""
         
+    # WebSocket Server Control Methods
+    def toggle_websocket_server(self):
+        """Toggle WebSocket server on/off based on checkbox state."""
+        if self.websocket_enabled_var.get():
+            self.start_websocket_server()
+        else:
+            self.stop_websocket_server()
+
+    def start_websocket_server(self):
+        """Start the WebSocket server."""
+        try:
+            self.websocket_server = WebSocketServer("localhost", self.websocket_port)
+            
+            if self.websocket_server.start_server():
+                self.websocket_enabled = True
+                self.websocket_status_label.config(text="Running", foreground="green")
+                self.update_websocket_client_count()
+                logger.info(f"WebSocket server started on port {self.websocket_port}")
+            else:
+                self.websocket_enabled_var.set(False)
+                self.websocket_status_label.config(text="Failed to start", foreground="red")
+                logger.error("Failed to start WebSocket server")
+                
+        except Exception as e:
+            self.websocket_enabled_var.set(False)
+            self.websocket_status_label.config(text="Error", foreground="red")
+            logger.error(f"Error starting WebSocket server: {e}")
+
+    def stop_websocket_server(self):
+        """Stop the WebSocket server."""
+        try:
+            if self.websocket_server:
+                self.websocket_server.stop_server()
+                self.websocket_server = None
+                
+            self.websocket_enabled = False
+            self.websocket_status_label.config(text="Stopped", foreground="red")
+            self.websocket_clients_label.config(text="0")
+            
+            logger.info("WebSocket server stopped")
+            
+        except Exception as e:
+            logger.error(f"Error stopping WebSocket server: {e}")
+
+    def update_websocket_client_count(self):
+        """Periodically update the client count display."""
+        if self.websocket_server and self.websocket_server.is_running():
+            client_count = self.websocket_server.get_client_count()
+            self.websocket_clients_label.config(text=str(client_count))
+            self.after(2000, self.update_websocket_client_count)
+
+    def send_websocket_data(self, timestamp, quat_data, acc_data, ang_data, mag_data=None):
+        """Wrapper to send IMU data via WebSocket if the server is running."""
+        if (self.websocket_server and 
+            self.websocket_server.is_running() and 
+            self.websocket_enabled and 
+            hasattr(self, 'imu_ordered_configuration')):
+            
+            try:
+                self.websocket_server.send_imu_data(
+                    timestamp,
+                    self.imu_ordered_configuration,
+                    quat_data,
+                    acc_data,
+                    ang_data,
+                    mag_data
+                )
+            except Exception as e:
+                logger.error(f"Error sending WebSocket data: {e}")
 # Run the application
 if __name__ == "__main__":
 
