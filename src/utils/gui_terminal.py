@@ -48,6 +48,11 @@ class LogTab(ttk.Frame):
 
         ttk.Button(bar, text="Clear", command=self.clear).pack(side=tk.LEFT, padx=4)
         ttk.Button(bar, text="Save…", command=self.save_to_file).pack(side=tk.LEFT, padx=4)
+        
+        # checkbox enable/disable terminal
+        self._enabled = True
+        self._enabled_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(bar,text="Enable Terminal",variable=self._enabled_var,command=lambda: self.set_enabled(self._enabled_var.get())).pack(side=tk.LEFT, padx=8)
 
         # Text area
         self.text = ScrolledText(self, wrap="word", state="disabled")
@@ -63,6 +68,8 @@ class LogTab(ttk.Frame):
         # tracking attached logger & original level
         self._attached_logger: Optional[logging.Logger] = None
         self._attached_logger_original_level: Optional[int] = None
+        self._attached_logger_original_disabled: Optional[bool] = None   
+        self._attached_logger_original_propagate: Optional[bool] = None  
 
         try:
             self._after_id = self.after(self._poll_ms, self._poll_queue)
@@ -72,6 +79,56 @@ class LogTab(ttk.Frame):
     # Public API
     def get_handler(self) -> logging.Handler:
         return self._handler
+    
+    def _start_polling(self):
+        if self._after_id is None and self._enabled:
+            self._after_id = self.after(self._poll_ms, self._poll_queue)
+
+    def _stop_polling(self):
+        if self._after_id is not None:
+            try: self.after_cancel(self._after_id)
+            except tk.TclError: pass
+            self._after_id = None
+
+    def _drain_queue(self):
+        try:
+            while True:
+                self._q.get_nowait()
+        except queue.Empty:
+            pass
+
+    def set_enabled(self, enabled: bool):
+        """Enable/disable terminal"""
+        # Enable
+        if enabled and not getattr(self, "_enabled", True):
+            self._enabled = True
+
+            if self._prev_disable_level is None:
+                logging.disable(logging.NOTSET)
+            else:
+                logging.disable(self._prev_disable_level)
+                self._prev_disable_level = None
+
+            self.attach()
+            self._start_polling()
+            return
+
+        # Disable
+        if (not enabled) and getattr(self, "_enabled", True):
+            self._enabled = False
+
+            # Stop GUI polling and remove handler
+            self._stop_polling()
+            self.detach()
+            self._drain_queue()
+
+            try:
+                self._prev_disable_level = logging.root.manager.disable
+            except Exception:
+                self._prev_disable_level = logging.NOTSET
+
+            logging.disable(logging.INFO)
+            return
 
     def attach(self, logger_name: Optional[str] = None, level: int = logging.DEBUG):
         target = logging.getLogger(logger_name) if logger_name else logging.getLogger()
@@ -83,10 +140,10 @@ class LogTab(ttk.Frame):
         if self._handler not in target.handlers:
             target.addHandler(self._handler)
 
-            try:
-                self._attached_logger_original_level = target.level
-            except Exception:
-                self._attached_logger_original_level = None
+            # Save initial state
+            self._attached_logger_original_level = getattr(target, "level", None)
+            self._attached_logger_original_disabled = getattr(target, "disabled", None)
+            self._attached_logger_original_propagate = getattr(target, "propagate", None)
 
             try:
                 target.setLevel(level)
@@ -103,14 +160,22 @@ class LogTab(ttk.Frame):
             except Exception:
                 pass
 
+            # Reset state logger
             try:
                 if self._attached_logger_original_level is not None:
                     self._attached_logger.setLevel(self._attached_logger_original_level)
+                if self._attached_logger_original_disabled is not None:
+                    self._attached_logger.disabled = self._attached_logger_original_disabled
+                if self._attached_logger_original_propagate is not None:
+                    self._attached_logger.propagate = self._attached_logger_original_propagate
             except Exception:
                 pass
 
         self._attached_logger = None
         self._attached_logger_original_level = None
+        self._attached_logger_original_disabled = None
+        self._attached_logger_original_propagate = None
+
 
     def _poll_queue(self):
         if not self.winfo_exists() or not getattr(self, "_running", True):
@@ -145,6 +210,13 @@ class LogTab(ttk.Frame):
             self.trim_lines()
         except tk.TclError:
             pass
+        
+        finally:
+            # always lock back to read-only
+            try:
+                self.text.configure(state="disabled")
+            except tk.TclError:
+                pass
 
     def trim_lines(self):
         try:
