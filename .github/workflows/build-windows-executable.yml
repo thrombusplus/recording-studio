@@ -44,7 +44,7 @@ jobs:
       - name: Package Release
         run: Compress-Archive -Path dist/IMURecordingStudio.exe -DestinationPath IMURecordingStudio-Windows.zip
 
-      # Step 6: Uploads the packaged .zip file to the GitHub Release assets.
+      # Step 6a: Uploads the packaged .zip file to the GitHub Release assets.
       - name: Upload to Release
         if: github.event_name == 'release'
         uses: actions/upload-release-asset@v1
@@ -59,3 +59,11 @@ jobs:
           asset_name: IMURecordingStudio-Windows-${{ github.ref_name }}.zip
           # The content type of the asset.
           asset_content_type: application/zip
+          
+      # Step 6b: Uploads the packaged .zip file to the workflow artifacts.
+      - name: Upload artifact (manual dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: IMURecordingStudio-Windows
+          path: ./IMURecordingStudio-Windows.zip
