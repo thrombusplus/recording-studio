@@ -1,0 +1,60 @@
+# Name of the GitHub Actions workflow. This will be displayed on the Actions tab.
+name: Build Windows Executable
+
+# Controls when the workflow will run.
+on:
+  # Triggers the workflow when a release is created on GitHub.
+  release:
+    types: [created]
+  # Allows you to run this workflow manually from the Actions tab for testing.
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel.
+jobs:
+  build:
+    # The type of runner that the job will run on. We use the latest Windows version.
+    runs-on: windows-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job.
+    steps:
+      # Step 1: Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it.
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Step 2: Sets up a Python environment for use in actions.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10' # Specify the Python version you use
+
+      # Step 3: Installs project dependencies from requirements.txt and local .whl file.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install libs/*.whl
+          pip install pyinstaller
+
+      # Step 4: Runs PyInstaller to create the executable.
+      - name: Build executable with PyInstaller
+        run: |
+          pyinstaller --noconfirm --onefile --windowed --collect-all movelladot_pc_sdk --name "IMURecordingStudio" RecordingStudio.py
+
+      # Step 5: Package the executable into a zip file for the release.
+      - name: Package Release
+        run: Compress-Archive -Path dist/IMURecordingStudio.exe -DestinationPath IMURecordingStudio-Windows.zip
+
+      # Step 6: Uploads the packaged .zip file to the GitHub Release assets.
+      - name: Upload to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # This is the URL for uploading assets to the release that triggered the workflow.
+          upload_url: ${{ github.event.release.upload_url }} 
+          # Path to the asset you want to upload.
+          asset_path: ./IMURecordingStudio-Windows.zip
+          # The name of the asset in the release (e.g., IMURecordingStudio-Windows-v1.0.zip).
+          asset_name: IMURecordingStudio-Windows-${{ github.ref_name }}.zip
+          # The content type of the asset.
+          asset_content_type: application/zip
