@@ -1,6 +1,7 @@
 # Name of the GitHub Actions workflow. This will be displayed on the Actions tab.
 name: Build Windows Executable
-
+permissions:
+  contents: write
 # Controls when the workflow will run.
 on:
   # Triggers the workflow when a release is created on GitHub.
