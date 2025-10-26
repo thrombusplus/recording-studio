@@ -100,7 +100,7 @@ class IMURecordingStudio(tk.Tk):
         def closeWindow():
             self.disconnect_IMU_sensors()
             self.disconnect_webcams()
-            if self.websocket_server and self.websocket_server.is_running():
+            if self.websocket_server or self.websocket_server.is_running():
                 self.websocket_server.stop_server()
             self.destroy()
             logger.info("EXIT")
@@ -1323,6 +1323,14 @@ class IMURecordingStudio(tk.Tk):
                     #time.sleep(0.05)
 
                 quaternions = self.latest_quat_data
+
+                self.send_websocket_data(
+                    time.time(),
+                    self.imu.quat_data,
+                    self.imu.acc_data,
+                    self.imu.gyr_data,
+                    self.imu.mag_data
+                )
                 
             else:
                 self.imu.get_measurments()
