@@ -1069,11 +1069,52 @@ class IMURecordingStudio(tk.Tk):
             for combo in self.imu_comboboxes:
                 combo['values'] = ["None"] + self.imu_tags
                 combo['state'] = 'normal'
+            
+            # Auto-select default sensors for LAM backend
+            self._auto_select_default_lam_sensors()
         else:
             logger.warning("Failed to connect to discovered LAM devices")
             self.connect_button.config(text="Connect Sensors")
             self.connect_button.state(["!disabled"])
             messagebox.showerror("LAM Connection Failed", "Could not connect to discovered LAM devices. Please check network connectivity.")
+    
+    def _auto_select_default_lam_sensors(self):
+        """Auto-select default sensors for LAM backend based on body segment mapping.
+        
+        Default mapping:
+        - Left Thigh (Device 0) -> Sensor 8
+        - Left Calf (Device 1) -> Sensor 7
+        - Left Foot (Device 2) -> Sensor 6
+        - Right Thigh (Device 3) -> Sensor 3
+        - Right Calf (Device 4) -> Sensor 2
+        - Right Foot (Device 5) -> Sensor 1
+        """
+        if not self.imu or self.imu.backend_name != "lam":
+            return
+        
+        # Get default sensor IDs from LAM backend
+        default_sensor_ids = self.imu.backend.DefaultSensorUnitIds
+        
+        # Check if all default sensors are available in imu_tags
+        available_tags = set(self.imu_tags)
+        default_sensors_available = all(
+            f"Sensor {sensor_id}" in available_tags 
+            for sensor_id in default_sensor_ids[:len(self.imu_comboboxes)]
+        )
+        
+        if default_sensors_available:
+            # Auto-select the default sensors for each body segment
+            for i, combo in enumerate(self.imu_comboboxes):
+                if i < len(default_sensor_ids):
+                    sensor_id = default_sensor_ids[i]
+                    sensor_tag = f"Sensor {sensor_id}"
+                    # Find the index in the combobox values
+                    values = list(combo['values'])
+                    if sensor_tag in values:
+                        combo.current(values.index(sensor_tag))
+            logger.info(f"Auto-selected default LAM sensors: {default_sensor_ids}")
+        else:
+            logger.info("Some default LAM sensors not available, manual selection required")
             
     def disconnect_IMU_sensors(self):
         if not self.imu == None:

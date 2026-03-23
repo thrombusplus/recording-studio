@@ -312,7 +312,15 @@ class LAMBackend(IMUBackend):
     """IMU Backend for LAM (Local Area Motion) IMU sensors.
     
     This backend supports LAM IMU sensors via UDP protocol with mDNS discovery.
-    Default sensor order: {7, 6, 5, 2, 1, 0}
+    Default sensor order: {8, 7, 6, 3, 2, 1}
+    
+    Body segment to sensor mapping:
+    - Left Thigh (Device 0) -> Sensor 8
+    - Left Calf (Device 1) -> Sensor 7
+    - Left Foot (Device 2) -> Sensor 6
+    - Right Thigh (Device 3) -> Sensor 3
+    - Right Calf (Device 4) -> Sensor 2
+    - Right Foot (Device 5) -> Sensor 1
     """
     
     name = "lam"
@@ -324,7 +332,8 @@ class LAMBackend(IMUBackend):
     )
     
     # Default sensor order for LAM IMU body tracking:
-    DefaultSensorUnitIds = [1, 2, 3, 6, 7, 8]
+    # [Left Thigh, Left Calf, Left Foot, Right Thigh, Right Calf, Right Foot]
+    DefaultSensorUnitIds = [8, 7, 6, 3, 2, 1]
     
     def __init__(self, frame_rate: int, **config):
         super().__init__(frame_rate, **config)
