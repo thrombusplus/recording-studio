@@ -15,8 +15,10 @@ import os
 import cv2
 import logging, sys
 from queue import Queue
-from src.utils.cameramanager import  CameraManager
-from src.utils import *
+from src.utils.cameramanager import CameraManager
+from src.utils.constants import DEFAULT_SETTINGS
+from src.utils.filemanager import FileManager
+from src.utils.imumanager import IMUManager
 from src.utils.logger import get_logger
 from src.utils.gui_terminal import LogTab
 from src.utils.websocket_server import WebSocketServer
@@ -40,6 +42,7 @@ class IMURecordingStudio(tk.Tk):
         self.imu_status_lamps = [] # List of IMU lamps
         self.imu_status_labels = [] # List of IMU labels
         self.imu_battery_status_labels = [] # List of labels with status labels
+        self.imu_battery_update_button = None
         self.imu_tags = [] # List With the tags from each IMU
         self.camera_lamps = [] # List of camera lamps
         self.camera_labels = [] # List of camera labels
@@ -74,6 +77,7 @@ class IMURecordingStudio(tk.Tk):
         self.websocket_server = None
         self.websocket_enabled = False
         self.websocket_port = 8185
+        self.imu_websocket_default_url = "ws://localhost:8186"
 
 
         
@@ -100,7 +104,7 @@ class IMURecordingStudio(tk.Tk):
         def closeWindow():
             self.disconnect_IMU_sensors()
             self.disconnect_webcams()
-            if self.websocket_server or self.websocket_server.is_running():
+            if self.websocket_server and self.websocket_server.is_running():
                 self.websocket_server.stop_server()
             self.destroy()
             logger.info("EXIT")
@@ -292,8 +296,8 @@ class IMURecordingStudio(tk.Tk):
         start_stop_imu_button = ttk.Button(frame, text="Start/Stop streaming", command=self.start_stop_button_streaming_imu)
         start_stop_imu_button.grid(row=0, column=1, columnspan=1)
 
-        imu_reset_heading_button =ttk.Button(frame, text="Reset Heading", command=self.reset_heading)
-        imu_reset_heading_button.grid(row=0,column=0, columnspan=1)
+        self.imu_reset_heading_button = ttk.Button(frame, text="Reset Heading", command=self.reset_heading)
+        self.imu_reset_heading_button.grid(row=0, column=0, columnspan=1)
 
         self.imu_pose_selection=ttk.Combobox(frame, state="readonly", values = ["Sitting","Lying","Standing"])
         self.imu_pose_selection.set("Sitting")
@@ -304,8 +308,8 @@ class IMURecordingStudio(tk.Tk):
         # self.imu_pose_selection.set("Sitting")
         # self.imu_pose_selection.grid(row=0,column=3, columnspan=1 )
 
-        imu_calibrate_button =ttk.Button(frame, text="Calibrate Data", command=self.get_calibration_data)
-        imu_calibrate_button.grid(row=0,column=4, columnspan=1)
+        self.imu_calibrate_button = ttk.Button(frame, text="Calibrate Data", command=self.get_calibration_data)
+        self.imu_calibrate_button.grid(row=0, column=4, columnspan=1)
 
         self.show_calibrated_checkbox_var = tk.BooleanVar()
         self.show_calibrated_checkbox_var.set(False)
@@ -320,19 +324,43 @@ class IMURecordingStudio(tk.Tk):
         self.imu_control_frame = ttk.LabelFrame(self.settings_tab, text="IMU Sensor Control")
         self.imu_control_frame.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
 
-        # Connect Sensors Button
-        self.frame_rate_list= ttk.Combobox(self.imu_control_frame, state="normal", values=["60", "30", "20", "15", "12", "10", "4", "1"])
-        self.frame_rate_list.grid(row=0, column=0, columnspan=1)
+        ttk.Label(self.imu_control_frame, text="Backend").grid(row=0, column=0, padx=5, pady=5, sticky='w')
+        self.imu_backend_selector = ttk.Combobox(
+            self.imu_control_frame,
+            state="readonly",
+            values=IMUManager.backend_labels(),
+        )
+        self.imu_backend_selector.grid(row=0, column=1, columnspan=1, padx=5, pady=5, sticky='ew')
+        self.imu_backend_selector.set("Movella DOT")
+        self.imu_backend_selector.bind("<<ComboboxSelected>>", self.on_imu_backend_changed)
+
+        ttk.Label(self.imu_control_frame, text="Rate (Hz)").grid(row=1, column=0, padx=5, pady=5, sticky='w')
+        self.frame_rate_list = ttk.Combobox(self.imu_control_frame, state="normal", values=["60", "30", "20", "15", "12", "10", "4", "1"])
+        self.frame_rate_list.grid(row=1, column=1, columnspan=1, padx=5, pady=5, sticky='ew')
         self.frame_rate_list.current(0)
 
+        ttk.Label(self.imu_control_frame, text="WS URL").grid(row=2, column=0, padx=5, pady=5, sticky='w')
+        self.imu_backend_url_var = tk.StringVar(value=self.imu_websocket_default_url)
+        self.imu_backend_url_entry = ttk.Entry(self.imu_control_frame, textvariable=self.imu_backend_url_var)
+        self.imu_backend_url_entry.grid(row=2, column=1, columnspan=1, padx=5, pady=5, sticky='ew')
+
+        ttk.Label(self.imu_control_frame, text="WS Devices").grid(row=3, column=0, padx=5, pady=5, sticky='w')
+        self.imu_backend_device_count_var = tk.StringVar(value="6")
+        self.imu_backend_device_count_entry = ttk.Entry(
+            self.imu_control_frame,
+            textvariable=self.imu_backend_device_count_var,
+        )
+        self.imu_backend_device_count_entry.grid(row=3, column=1, columnspan=1, padx=5, pady=5, sticky='ew')
+
         self.connect_button = ttk.Button(self.imu_control_frame, text="Connect Sensors", command=lambda: Thread(target=self.conenct_IMU_sensors, daemon=True).start())
-        self.connect_button.grid(row=1, column=0, columnspan=2, pady=10, sticky='nsew')
+        self.connect_button.grid(row=4, column=0, columnspan=2, pady=10, sticky='nsew')
         
         self.discoconnect_button = ttk.Button(self.imu_control_frame, text="Disconnect Sensors", command=self.disconnect_IMU_sensors)
-        self.discoconnect_button.grid(row=2, column=0, columnspan=2, pady=10, sticky='nsew')
+        self.discoconnect_button.grid(row=5, column=0, columnspan=2, pady=10, sticky='nsew')
         
         self.sync_button = ttk.Button(self.imu_control_frame, text="Sync Sensors", command= lambda: Thread(target=self.sync_sensors,daemon =True).start())
-        self.sync_button.grid(row=3, column=0, columnspan=2, pady=10, sticky='nsew') 
+        self.sync_button.grid(row=6, column=0, columnspan=2, pady=10, sticky='nsew') 
+        self.imu_control_frame.columnconfigure(1, weight=1)
 
         #self.stop_sync_button =ttk.Button(self.imu_control_frame, text="Stop Sync Sensors", command=self.stop_sync_sensors)
         #self.stop_sync_button.grid( row=4, column =0,columnspan=2, pady=10, sticky='nsew')
@@ -418,6 +446,8 @@ class IMURecordingStudio(tk.Tk):
         if formatter is not None:
             gui_handler.setFormatter(formatter)
 
+        self.on_imu_backend_changed()
+
         root_logger = logging.getLogger()
         root_logger.addHandler(gui_handler)
 
@@ -437,7 +467,8 @@ class IMURecordingStudio(tk.Tk):
         self.imu_status_lamps.append(lamp)
 
         # Create labels that show the battery of each connected dot
-        label = ttk.Label(frame, text=f"{batteryLevel}%", width=10)
+        battery_text = f"{batteryLevel}%" if batteryLevel is not None else "N/A"
+        label = ttk.Label(frame, text=battery_text, width=10)
         label.grid(row=row, column=column+2, padx=10)
         self.imu_battery_status_labels.append(label)
 
@@ -452,6 +483,48 @@ class IMURecordingStudio(tk.Tk):
 
         # store each lamp in a dictionary for future modification
         self.camera_lamps.append(lamp)
+
+    def on_imu_backend_changed(self, event=None):
+        backend_name = IMUManager.backend_name_from_label(self.imu_backend_selector.get())
+        websocket_selected = backend_name == "websocket"
+
+        self.imu_backend_url_entry["state"] = "normal" if websocket_selected else "disabled"
+        self.imu_backend_device_count_entry["state"] = "normal" if websocket_selected else "disabled"
+
+        if self.imu is None:
+            self.sync_button.state(["disabled"])
+            self.imu_reset_heading_button.state(["disabled"])
+
+    def get_selected_imu_backend_config(self):
+        backend_name = IMUManager.backend_name_from_label(self.imu_backend_selector.get())
+        if backend_name != "websocket":
+            return {}
+
+        try:
+            device_count = max(int(self.imu_backend_device_count_var.get()), 1)
+        except ValueError:
+            device_count = 6
+            self.imu_backend_device_count_var.set(str(device_count))
+
+        return {
+            "url": self.imu_backend_url_var.get().strip() or self.imu_websocket_default_url,
+            "device_count": device_count,
+        }
+
+    def update_imu_capability_controls(self):
+        if self.imu is None:
+            self.on_imu_backend_changed()
+            return
+
+        if self.imu.capabilities.can_sync:
+            self.sync_button.state(["!disabled"])
+        else:
+            self.sync_button.state(["disabled"])
+
+        if self.imu.capabilities.can_reset_heading:
+            self.imu_reset_heading_button.state(["!disabled"])
+        else:
+            self.imu_reset_heading_button.state(["disabled"])
 
     def update_saving_directory(self):
         directory = filedialog.askdirectory()
@@ -885,11 +958,27 @@ class IMURecordingStudio(tk.Tk):
         
     def conenct_IMU_sensors(self):
         if self.imu == None:
-            self.imu = IMUManager(int(self.frame_rate_list.get()))
+            backend_name = IMUManager.backend_name_from_label(self.imu_backend_selector.get())
+            backend_config = self.get_selected_imu_backend_config()
+            try:
+                self.imu = IMUManager(
+                    int(self.frame_rate_list.get()),
+                    backend_name=backend_name,
+                    backend_config=backend_config,
+                )
+            except Exception as e:
+                logger.error(f"Failed to initialize IMU backend '{backend_name}': {e}")
+                self.imu = None
+                return
 
-        if self.imu.devices._XdpcHandler__connectedDots:
+        if self.imu.connected_devices():
             self.imu_update_list()
             self.connect_button.state(["disabled"])
+            self.imu_backend_selector["state"] = "disabled"
+            self.frame_rate_list["state"] = "disabled"
+            self.imu_backend_url_entry["state"] = "disabled"
+            self.imu_backend_device_count_entry["state"] = "disabled"
+            self.update_imu_capability_controls()
             for combo in self.imu_comboboxes:
                 combo['values'] = ["None"] + self.imu_tags
                 combo['state'] = 'normal'
@@ -919,22 +1008,43 @@ class IMURecordingStudio(tk.Tk):
                 combo["state"] = "disable"
                 combo["values"] = "None"
 
-            self.imu_battery_update_button.destroy()
+            if self.imu_battery_update_button is not None:
+                self.imu_battery_update_button.destroy()
+                self.imu_battery_update_button = None
+
+            self.imu_backend_selector["state"] = "readonly"
+            self.frame_rate_list["state"] = "normal"
+            self.on_imu_backend_changed()
         else:
             logger.warning("No IMU sensors are connected")
 
     def imu_update_list(self):
-        for device in range(len(self.imu.devices._XdpcHandler__connectedDots)):
-            self.imu_tags.append(self.imu.devices._XdpcHandler__connectedDots[device].deviceTagName())
-            batteryLevel = self.imu.devices._XdpcHandler__connectedDots[device].batteryLevel()
-            self.create_imu_status_lamp(self.imu_status_frame, self.imu_tags[device], device, 0, batteryLevel)
-        self.imu_battery_update_button = ttk.Button(self.imu_status_frame, text="Check Battery", command=self.imu_update_battery_levels)
-        self.imu_battery_update_button.grid(row=len(self.imu_tags), column=0, padx=10, pady=10 )
+        for idx, device_info in enumerate(self.imu.connected_devices()):
+            self.imu_tags.append(device_info.tag)
+            self.create_imu_status_lamp(
+                self.imu_status_frame,
+                device_info.tag,
+                idx,
+                0,
+                device_info.battery_level,
+            )
+
+        if self.imu.capabilities.has_battery_level:
+            self.imu_battery_update_button = ttk.Button(
+                self.imu_status_frame,
+                text="Check Battery",
+                command=self.imu_update_battery_levels,
+            )
+            self.imu_battery_update_button.grid(row=len(self.imu_tags), column=0, padx=10, pady=10)
     
     def imu_update_battery_levels(self):
-        for labels in range(len(self.imu_battery_status_labels)):
-            self.imu_battery_status_labels[labels]["text"] = f"{self.imu.devices._XdpcHandler__connectedDots[labels].batteryLevel()}%"   
-        logger.debug(1)
+        if self.imu is None:
+            return
+
+        for idx, device_info in enumerate(self.imu.connected_devices()):
+            battery_text = f"{device_info.battery_level}%" if device_info.battery_level is not None else "N/A"
+            self.imu_battery_status_labels[idx]["text"] = battery_text
+        logger.debug("Updated IMU battery levels")
 
     def lock_imu_configuration(self):
         selected_values = []
@@ -962,6 +1072,9 @@ class IMURecordingStudio(tk.Tk):
 
 
     def sync_sensors(self):
+      if self.imu is None:
+          logger.warning("No IMU backend connected.")
+          return
       self.imu.sync_IMU_sensors()
      
     def start_stop_button_streaming_imu(self):
@@ -1030,6 +1143,9 @@ class IMURecordingStudio(tk.Tk):
       if not self.imu_streaming:
         logger.info("Starting IMU measuring mode")
         self.start_imu_streaming()
+        if not self.imu_streaming:
+            logger.warning("Could not start IMU streaming. Recording aborted.")
+            return
 
     
       self.reset_heading_and_countdown(3)
@@ -1266,6 +1382,10 @@ class IMURecordingStudio(tk.Tk):
 
         
     def start_imu_streaming(self):
+        if self.imu is None:
+            logger.warning("No IMU backend connected.")
+            return
+
         if self.imu_streaming:
             logger.warning("IMU is already streaming.")
 
@@ -1273,6 +1393,9 @@ class IMURecordingStudio(tk.Tk):
         if self.imu_lock_status:
             self.imu_ordered_configuration = []
             flag = False # Dummy for checking if at least one movella has been selected 
+            tag_to_index = {
+                device_info.tag: idx for idx, device_info in enumerate(self.imu.connected_devices())
+            }
             for combobox in self.imu_comboboxes:
                 # We must loop over the combo, read the value of each dropdown menu, 
                 # loop over imu.devices and see what idx this device has, and then store this idx in a new list
@@ -1281,17 +1404,21 @@ class IMURecordingStudio(tk.Tk):
                 if value == "None":
                     self.imu_ordered_configuration.append(-1) # -1 Means that combobox is set to "None" i.e. no Sensor was set to that part
                 else:
-                    for idx in range(len(self.imu.devices.connectedDots())):
-                        if self.imu.devices.connectedDots()[idx].deviceTagName() == value:
-                            self.imu_ordered_configuration.append(idx)
-                            flag = True
-                            break                    
-            
+                    if value in tag_to_index:
+                        self.imu_ordered_configuration.append(tag_to_index[value])
+                        flag = True
+                    else:
+                        logger.warning(f"Selected IMU '{value}' is no longer available.")
+                        self.imu_ordered_configuration.append(-1)
+
             # If everthing is ok distribute the work to another Thread
             if flag:
-                self.imu_streaming = True
                 self.initiate_plot()
-                self.imu.start_measuring_mode()
+                if not self.imu.start_measuring_mode():
+                    logger.warning("Failed to start IMU backend streaming.")
+                    return
+
+                self.imu_streaming = True
 
                 flag_index = 2
                 self.thread_flag[flag_index] =True
@@ -1514,7 +1641,9 @@ class IMURecordingStudio(tk.Tk):
         self.ax.set_autoscale_on(False)            
         
     def reset_heading(self):
-        # self.imu.reset_heading()  
+        if self.imu is None:
+            logger.warning("No IMU backend connected.")
+            return
         self.reset_heading_flag = True
         
     # Methods for the Visualization tab
@@ -2069,6 +2198,9 @@ class IMURecordingStudio(tk.Tk):
             logger.error(f"[Pose Viewer] Error updating pose: {e}")
 
     def get_calibration_data(self):
+        if self.imu is None:
+            logger.warning("No IMU backend connected.")
+            return
         self.imu.calibrate()        
 
     def multiply_quaternions(self, q1, q2):
