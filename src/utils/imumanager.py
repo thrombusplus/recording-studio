@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Callable
 import numpy as np
 
 from src.utils.logger import get_logger
@@ -14,9 +15,10 @@ class IMUManager:
     _BACKEND_LABELS = {
         "movella": "Movella DOT",
         "websocket": "WebSocket",
+        "lam": "LAM IMU",
     }
 
-    def __init__(self, frame_rate, backend_name="movella", backend_config=None):
+    def __init__(self, frame_rate, backend_name="movella", backend_config=None, auto_connect=True):
         self.frame_rate = frame_rate
         self.backend_name = backend_name
         self.backend_config = backend_config or {}
@@ -24,10 +26,18 @@ class IMUManager:
         self.reset_heading_flag = False
         self.reset_heading_status = False
         self.capabilities = self.backend.capabilities
-        self.device_infos = self.backend.connect()
-        self.numOfDevices = len(self.device_infos)
-        self.newPackets = False
-        self._reset_buffers(self.numOfDevices)
+        
+        # For LAM backend, don't auto-connect to allow for async discovery
+        if auto_connect and backend_name != "lam":
+            self.device_infos = self.backend.connect()
+            self.numOfDevices = len(self.device_infos)
+            self.newPackets = False
+            self._reset_buffers(self.numOfDevices)
+        else:
+            self.device_infos = []
+            self.numOfDevices = 0
+            self.newPackets = False
+            self._reset_buffers(0)
 
     @classmethod
     def backend_labels(cls):
@@ -51,7 +61,36 @@ class IMUManager:
 
             return WebSocketIMUBackend(frame_rate, **backend_config)
 
+        if backend_name == "lam":
+            from .imu_backends.lam_backend import LAMBackend
+
+            return LAMBackend(frame_rate, **backend_config)
+
         raise ValueError(f"Unsupported IMU backend: {backend_name}")
+
+    def start_discovery(self, timeout: float = None, callback: Callable = None) -> None:
+        """Start async device discovery for LAM backend.
+        
+        Args:
+            timeout: Discovery timeout in seconds
+            callback: Optional callback when discovery completes
+        """
+        if self.backend_name == "lam" and hasattr(self.backend, 'discover_devices_async'):
+            self.backend.discover_devices_async(timeout=timeout, callback=callback)
+        else:
+            logger.warning(f"Discovery not supported for backend: {self.backend_name}")
+
+    def is_discovering(self) -> bool:
+        """Check if discovery is in progress."""
+        if self.backend_name == "lam" and hasattr(self.backend, 'is_discovering'):
+            return self.backend.is_discovering()
+        return False
+
+    def get_discovered_devices(self) -> list:
+        """Get list of discovered devices (LAM backend only)."""
+        if self.backend_name == "lam" and hasattr(self.backend, 'get_discovered_devices'):
+            return self.backend.get_discovered_devices()
+        return []
 
     def _reset_buffers(self, device_count):
         self.acc_data = np.full((device_count, 3), np.nan, dtype=float)

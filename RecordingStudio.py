@@ -960,6 +960,38 @@ class IMURecordingStudio(tk.Tk):
         if self.imu == None:
             backend_name = IMUManager.backend_name_from_label(self.imu_backend_selector.get())
             backend_config = self.get_selected_imu_backend_config()
+            
+            # Check if this is LAM backend that needs special handling
+            if backend_name == "lam":
+                try:
+                    # Create LAM backend without auto-connect
+                    self.imu = IMUManager(
+                        int(self.frame_rate_list.get()),
+                        backend_name=backend_name,
+                        backend_config=backend_config,
+                        auto_connect=False
+                    )
+                    # Start async discovery with UI feedback
+                    self.connect_button.config(text="Discovering...")
+                    self.connect_button.state(["disabled"])
+                    
+                    # Start discovery
+                    self.imu.start_discovery(
+                        timeout=5.0,
+                        callback=self._on_lam_discovery_complete
+                    )
+                    
+                    # Schedule discovery check
+                    self.after(1000, self._check_lam_discovery_progress)
+                    return
+                    
+                except Exception as e:
+                    logger.error(f"Failed to initialize LAM backend: {e}")
+                    self.imu = None
+                    self.connect_button.config(text="Connect Sensors")
+                    return
+            
+            # Non-LAM backends: use standard auto-connect
             try:
                 self.imu = IMUManager(
                     int(self.frame_rate_list.get()),
@@ -984,34 +1016,97 @@ class IMURecordingStudio(tk.Tk):
                 combo['state'] = 'normal'
         else:
             self.imu = None
+    
+    def _check_lam_discovery_progress(self):
+        """Check LAM discovery progress and update UI."""
+        if self.imu and self.imu.backend_name == "lam":
+            if self.imu.is_discovering():
+                # Still discovering, check again
+                self.after(1000, self._check_lam_discovery_progress)
+            else:
+                # Discovery complete, try to connect
+                self._finalize_lam_connection()
+    
+    def _on_lam_discovery_complete(self, discovered_devices):
+        """Callback when LAM discovery completes."""
+        logger.info(f"LAM discovery callback: found {len(discovered_devices)} devices")
+        # This is called from the discovery thread, schedule UI update on main thread
+        self.after(0, lambda: self._finalize_lam_connection())
+    
+    def _finalize_lam_connection(self):
+        """Finalize LAM connection after discovery."""
+        if not self.imu or self.imu.backend_name != "lam":
+            return
+            
+        # Check if devices were discovered
+        discovered = self.imu.get_discovered_devices()
+        if not discovered:
+            logger.warning("No LAM devices discovered")
+            self.connect_button.config(text="Connect Sensors")
+            self.connect_button.state(["!disabled"])
+            messagebox.showwarning("LAM Discovery", "No LAM IMU devices found. Please ensure devices are powered on and connected to the network.")
+            return
+        
+        # Try to connect using discovered devices
+        device_infos = self.imu.backend.connect()
+        if device_infos:
+            logger.info(f"Successfully connected to LAM: {len(device_infos)} sensors")
+            self.connect_button.config(text="Connected")
+            
+            # Update UI
+            self.imu.device_infos = device_infos
+            self.imu.numOfDevices = len(device_infos)
+            self.imu.newPackets = False
+            self.imu._reset_buffers(self.imu.numOfDevices)
+            
+            self.imu_update_list()
+            self.connect_button.state(["disabled"])
+            self.imu_backend_selector["state"] = "disabled"
+            self.frame_rate_list["state"] = "disabled"
+            self.imu_backend_url_entry["state"] = "disabled"
+            self.imu_backend_device_count_entry["state"] = "disabled"
+            self.update_imu_capability_controls()
+            for combo in self.imu_comboboxes:
+                combo['values'] = ["None"] + self.imu_tags
+                combo['state'] = 'normal'
+        else:
+            logger.warning("Failed to connect to discovered LAM devices")
+            self.connect_button.config(text="Connect Sensors")
+            self.connect_button.state(["!disabled"])
+            messagebox.showerror("LAM Connection Failed", "Could not connect to discovered LAM devices. Please check network connectivity.")
             
     def disconnect_IMU_sensors(self):
         if not self.imu == None:
+            # Cancel any ongoing LAM discovery
+            if hasattr(self.imu, 'cancel_discovery'):
+                self.imu.cancel_discovery()
+                
             self.imu.disconnect_IMU_sensors()
             self.imu = None
             self.imu_tags.clear()
-            self.imu_tags = []
+            self.imu_tags = []  
+            self.connect_button.config(text="Connect Sensors")
             self.connect_button.state(["!disabled"])
             for labels in self.imu_status_labels:
                 labels.destroy()
             self.imu_status_labels = []  
-
+    
             for lamps in self.imu_status_lamps:
                 lamps.destroy()
-            self.imu_status_lamps= []
-
+            self.imu_status_lamps= []  
+    
             for labels in self.imu_battery_status_labels:
                 labels.destroy()    
-            self.imu_battery_status_labels= []
-
+            self.imu_battery_status_labels= []  
+    
             for combo in self.imu_comboboxes:
                 combo["state"] = "disable"
                 combo["values"] = "None"
-
+    
             if self.imu_battery_update_button is not None:
                 self.imu_battery_update_button.destroy()
                 self.imu_battery_update_button = None
-
+    
             self.imu_backend_selector["state"] = "readonly"
             self.frame_rate_list["state"] = "normal"
             self.on_imu_backend_changed()
