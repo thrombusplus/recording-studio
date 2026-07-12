@@ -9,6 +9,16 @@ from src.utils.logger import get_logger
 logger = get_logger(__name__) 
 
 
+# -----Synchronization timestamp export ------
+# When SAVE_SYNC_TIMESTAMPS is True, save_recording() additionally writes
+# <filename_base>_timestamps.csv: one row per recorded frame with the
+# host monotonic timestamps (t_imu, t_cam1, t_cam2, in ns; t_imu is
+# captured just when the new.packet arrives) and  about the per-device
+# SampleTimeFine sensor clocks (1 MHz device clock, 1 tick = 1 µs).
+# This file is only needed to (re)run the camera-IMU synchronization
+# for normal data collection.
+SAVE_SYNC_TIMESTAMPS = True
+
 class FileManager:
     def __init__(self, file_path):
         self.file_path = file_path
@@ -17,8 +27,8 @@ class FileManager:
     
     def save_recording(self, data_queue, imu_ordered_configuration, patient_id, exercise_name, pose_setting, label_ID):
         # Count existing recordings
-        pattern = os.path.join(self.file_path, f"{patient_id}_{pose_setting}_{exercise_name}_{label_ID}_*")
-        existing_files = glob.glob(pattern + ".csv") 
+        pattern = os.path.join(self.file_path, f"{patient_id}_{pose_setting}_{exercise_name}_{label_ID}_*.csv")
+        existing_files = [f for f in glob.glob(pattern) if not f.endswith("_timestamps.csv")]
         repeat_number = len(existing_files) + 1
         repeat_str = str(repeat_number).zfill(2)
 
@@ -29,12 +39,22 @@ class FileManager:
         imu_txt_path = os.path.join(self.file_path, f"{filename_base}.txt")
         cam1_path = os.path.join(self.file_path, f"{filename_base}_camera1.mp4")
         cam2_path = os.path.join(self.file_path, f"{filename_base}_camera2.mp4")
+        sync_csv_path = os.path.join(self.file_path, f"{filename_base}_timestamps.csv")
 
         camera1_frames = []
         camera2_frames = []
 
-        with open(imu_csv_path, mode='w', newline='') as csvfile, open(imu_txt_path, mode='w') as txtfile:
+        with open(imu_csv_path, mode='w', newline='') as csvfile, \
+            open(imu_txt_path, mode='w') as txtfile:
+
             writer = csv.writer(csvfile)
+            syncfile = None
+            sync_writer = None
+
+            if SAVE_SYNC_TIMESTAMPS:
+                syncfile = open(sync_csv_path, mode='w', newline='')
+                sync_writer = csv.writer(syncfile)
+                 
 
             # CSV header
             header = ["timestamp"]  
@@ -49,13 +69,14 @@ class FileManager:
 
             writer.writerow(header)
 
-            #Txt header
-            txt_header = ["timestamp"]
+            # Sync/timestamps file header
+            sync_header = ["frame", "t_imu", "t_cam1", "t_cam2"]
             for i in range(6):
-                header += [f"quat.w({i})", f"quat.x({i})", f"quat.y({i})", f"quat.z({i})"]
-                header += [f"acc.x({i})", f"acc.y({i})", f"acc.z({i})"]
-                header += [f"ang.x({i})", f"ang.y({i})", f"ang.z({i})"]
-                
+                sync_header.append(f"IMU_{i}_sensor_ts")
+            if sync_writer:
+                sync_writer.writerow(sync_header)
+
+            frame_index = 0
 
             while not data_queue.empty():
                 try:
@@ -64,7 +85,7 @@ class FileManager:
                     imu_acc = data.get('imu_acc')
                     imu_ang = data.get('imu_ang')
                     imu_mag = data.get('imu_mag')
-                    unix_ts = int(data['timestamp'] * 1000)
+                    unix_ts = int(data['timestamp'] // 1_000_000)
                     imu_ts = data.get('imu_ts') 
                     row = [unix_ts]
                     for pos_idx in range(6):
@@ -114,11 +135,31 @@ class FileManager:
                     writer.writerow(row)
                     txtfile.write(",".join(map(str, txt_row)) + "\n")
 
+                    # Sync/timestamps row — uses the SAME imu_ordered_configuration
+                    # mapping as the main CSV's IMU_i_sensor_ts columns, so
+                    # IMU_i_sensor_ts here lines up 1:1 with the main CSV.
+                    if sync_writer:
+                        sync_row = [
+                            frame_index,
+                            data.get('t_imu', ""),
+                            data.get('t_cam1', ""),
+                            data.get('t_cam2', ""),
+                        ]
+                        for pos_idx in range(6):
+                            imu_idx = imu_ordered_configuration[pos_idx] if pos_idx < len(imu_ordered_configuration) else -1
+                            if imu_idx != -1 and imu_ts is not None and imu_idx < len(imu_ts):
+                                sync_row.append(int(imu_ts[imu_idx]))
+                            else:
+                                sync_row.append("")
+                        sync_writer.writerow(sync_row)
+
                     # Frames
                     if data['frame_cam1'] is not None:
                         camera1_frames.append(data['frame_cam1'])
                     if data['frame_cam2'] is not None:
                         camera2_frames.append(data['frame_cam2'])
+
+                    frame_index += 1
 
                 except Exception as e:
                     logger.error(f"Error: {e}")
@@ -144,8 +185,16 @@ class FileManager:
             pose_code = "S"
         else:
             pose_code = "ST"   #Standing
+
+        if syncfile:
+            syncfile.close()
+
         with open(imu_csv_path, 'a', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow([f"#POSE={pose_code}"])
 
-        logger.info(f"Saved files: {imu_csv_path}, {imu_txt_path}, {cam1_path}, {cam2_path}")
+        SAVED_FILES = [imu_csv_path, imu_txt_path, cam1_path, cam2_path]
+        if SAVE_SYNC_TIMESTAMPS:
+            SAVED_FILES.append(sync_csv_path)  
+        
+        logger.info(f"Saved files: {', '.join(SAVED_FILES)}")
