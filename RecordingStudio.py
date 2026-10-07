@@ -7,6 +7,7 @@ from matplotlib.ticker import MaxNLocator
 import time
 from threading import Thread
 import threading
+import urllib.request
 from IPython import get_ipython
 import numpy as np
 import pandas as pd
@@ -20,6 +21,7 @@ from src.utils import *
 from src.utils.logger import get_logger
 from src.utils.gui_terminal import LogTab
 from src.utils.websocket_server import WebSocketServer
+from src.utils.controller_client import ControllerClient
 
 
 
@@ -75,6 +77,16 @@ class IMURecordingStudio(tk.Tk):
         self.websocket_enabled = False
         self.websocket_port = 8185
 
+        # LAN remote control (Signal Controller server): receive START/STOP from the
+        # webpage / other GUIs, and tell them when START/STOP is pressed here.
+        self._start_pending = False        # True between "start requested" and "actually recording"
+        self._start_is_remote = False      # True when the current start came from the server
+        self._controller_state = None      # last logged connection state
+        self.controller_client = ControllerClient()
+        self.controller_client.start()
+        self.after(100, self.poll_controller)
+
+
 
         
         # Thread explanation:
@@ -98,9 +110,11 @@ class IMURecordingStudio(tk.Tk):
         self.tabControl = ttk.Notebook(self)
         
         def closeWindow():
+            
             self.disconnect_IMU_sensors()
             self.disconnect_webcams()
-            if self.websocket_server or self.websocket_server.is_running():
+            self.controller_client.stop()
+            if self.websocket_server and self.websocket_server.is_running():
                 self.websocket_server.stop_server()
             self.destroy()
             logger.info("EXIT")
@@ -1008,10 +1022,11 @@ class IMURecordingStudio(tk.Tk):
             self.thread[i] = None
             logger.debug(f" Stopped and cleared thread[{i}]")
 
-    def start_recording(self):
-      
-      if self.recording:
-        logger.warning("Recording already in progress.")
+    def start_recording(self, remote=False):
+      """remote=True when triggered by the controller server (countdown still runs, but no echo back)."""
+
+      if self.recording or self._start_pending:
+        logger.warning("Recording already in progress (or about to start).")
         return
 
       if not self.imu_lock_status:
@@ -1031,7 +1046,9 @@ class IMURecordingStudio(tk.Tk):
         logger.info("Starting IMU measuring mode")
         self.start_imu_streaming()
 
-    
+
+      self._start_pending = True
+      self._start_is_remote = remote   # remote starts are not sent back to the server
       self.reset_heading_and_countdown(3)
 
 
@@ -1052,7 +1069,12 @@ class IMURecordingStudio(tk.Tk):
         logger.info(f"Recording starts in: {seconds_left}...")
         self.after(2000, lambda: self.reset_heading_and_countdown(seconds_left - 1))
       else:
-        self.start_recording_proper()
+        try:
+          self.start_recording_proper()
+        except Exception:
+          logger.exception("Recording failed to start")
+        finally:
+          self._start_pending = False   # never leave Start blocked
 
     def start_recording_proper(self):
       logger.info("Starting actual recording...")
@@ -1063,6 +1085,9 @@ class IMURecordingStudio(tk.Tk):
       self.latest_frame_cam2 = None
 
       self.use_queue = True
+      if not self._start_is_remote:
+        self.send_controller_command("start")   # others start now, with us
+      self._start_pending = False
       self.recording = True
     
       self.thread_flag[0] = True
@@ -1101,11 +1126,12 @@ class IMURecordingStudio(tk.Tk):
       self.exercise_list_label['text'] = f"RECORDING!"
       self.exercise_list_label['background'] = 'green'
 
-    def stop_recording(self):
+    def stop_recording(self, remote=False):
      if not self.recording:
         logger.info("Recording stopped.")
         return
-
+     if not remote:
+        self.send_controller_command("stop")   # remote stops must not be echoed back
      logger.info("Stopping recording...")
 
      self.recording = False
@@ -2160,6 +2186,63 @@ class IMURecordingStudio(tk.Tk):
                 )
             except Exception as e:
                 logger.error(f"Error sending WebSocket data: {e}")
+
+    def poll_controller(self):
+        """Every 50 ms: run remote START/STOP like the Start/Stop buttons (Tk thread only).
+        Event formats produced by ControllerClient:
+          ("command", "start"|"stop", receive_time)
+          ("status", "connecting"|"connected"|"disconnected", detail)
+          ("log", message)
+        """
+        try:
+            while not self.controller_client.events.empty():
+                event = self.controller_client.events.get()
+                kind = event[0]
+                if kind == "command":
+                    command, received_at = event[1], event[2]
+                    delay_ms = (time.time() - received_at) * 1000
+                    logger.info(f"Remote command received: {command.upper()} "
+                                f"(handled {delay_ms:.1f} ms after arrival)")
+                    if command == "start":
+                        self.start_recording(remote=True)
+                    elif command == "stop":
+                        self.stop_recording(remote=True)
+                elif kind == "status":
+                    state = event[1]
+                    detail = event[2] if len(event) > 2 else ""
+                    # "connecting" repeats every few seconds while the server is down: log changes only
+                    if state != self._controller_state:
+                        logger.info(f"Remote controller {state}: {detail}")
+                        self._controller_state = state
+                elif kind == "log":
+                    logger.warning(event[1])
+        except Exception as e:
+            logger.error(f"Error handling remote command: {e}")
+        self.after(5, self.poll_controller)
+
+    def send_controller_command(self, command):
+        """Tell the Signal Controller server to broadcast START/STOP to the other GUIs.
+        The HTTP address is derived from the controller client's WebSocket URL.
+        Never raises: a problem here must not stop a recording from starting/stopping."""
+        try:
+            ws_url = (getattr(self.controller_client, "url", None)
+                      or getattr(self.controller_client, "ws_url", None)
+                      or "ws://127.0.0.1:8000/ws")
+            base = ws_url.replace("wss://", "https://").replace("ws://", "http://")
+            base = base.rsplit("/ws", 1)[0]
+        except Exception as e:
+            logger.warning(f"Could not send {command.upper()} to controller server: {e}")
+            return
+
+        def worker():
+            try:
+                req = urllib.request.Request(f"{base}/{command}", data=b"", method="POST")
+                with urllib.request.urlopen(req, timeout=3) as r:
+                    logger.info(f"Sent {command.upper()} to controller server: {r.read().decode()}")
+            except Exception as e:
+                logger.warning(f"Could not send {command.upper()} to controller server: {e}")
+        threading.Thread(target=worker, daemon=True).start()
+
 # Run the application
 if __name__ == "__main__":
 
